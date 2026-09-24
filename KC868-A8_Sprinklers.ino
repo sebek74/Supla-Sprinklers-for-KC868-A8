@@ -41,6 +41,7 @@ void setup() {
   sensors.setupSensorCloudData();
   SprinklerRelay::registerRelays();
   SuplaDevice.setName(MY_DEVICE_NAME);
+  SuplaDevice.setCustomHostnamePrefix(MY_WIFI_NAME);
   //SuplaDevice.setInitialMode(Supla::InitialMode::StartInNotConfiguredMode);
   SuplaDevice.setProductId(0);
   SUPLA_LOG_DEBUG(F("setup zakończony\n"));

@@ -15,7 +15,7 @@ public:
         this->getChannel()->setDefaultFunction(SUPLA_CHANNELFNC_STAIRCASETIMER);
         this->getChannel()->setDefaultIcon(1);
     };
-    void startCycleNow(bool scheduled) { turnOn(); runScheduled = scheduled; programInProgress = true;}
+    void startCycleNow(bool scheduled);
     void completeCycleNow() { runScheduled=false; }
     bool isRunScheduled() { return runScheduled; };
     void updateRemainingTime(_supla_int_t addDuration);

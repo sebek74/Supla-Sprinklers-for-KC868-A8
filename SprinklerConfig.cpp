@@ -53,7 +53,7 @@ public:
     if (strcmp(key, "just_reboot") == 0 && strcmp(value, "1") == 0) {
       SUPLA_LOG_DEBUG("Otrzymano żądanie restartu urządzenia...");    
       // Bezpieczny restart urządzenia dostarczany przez bibliotekę Supla
-      SuplaDevice.scheduleSoftRestart(1); 
+      SuplaDevice.softRestart();
       return true;
     }
     return false;

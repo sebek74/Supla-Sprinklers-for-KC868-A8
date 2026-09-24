@@ -36,7 +36,7 @@ void SprinklerProgramRelay::turnOn(_supla_int_t duration) {
   SUPLA_LOG_DEBUG("handle SprinklerProgramRelay turnOn step 1!!! %d, %d\n", overridetime?1:0, duration);
   if(overridetime) {
     mojCzasDzialaniaMs = SprinklerRelay::calculateProgramTimeMs();
-    messenger.sendMessage(Msg::PROGRAM_ON);
+    messenger.sendMessage(Msg::PROGRAM_ON, mojCzasDzialaniaMs/MS_IN_MIN);
     display.exitEditMode();
   }
   else {
@@ -68,7 +68,7 @@ void SprinklerProgramRelay::iterateAlways() {
         programInProgress = false;
         if (!SprinklerRelay::isPumpRequired())
           SprinklerRelay::getRelayById(RelayId::Pump)->turnOff();
-        SprinklerRelay::getRelayById(RelayId::ScheduleCycle)->turnOff();
+        SprinklerRelay::disableScheduleCycle(DISABLE_MESSAGE);
     }
 }
 
@@ -104,3 +104,9 @@ uint32_t SprinklerProgramRelay::getCountdownTimerRemainingTimeSec() {
     SUPLA_LOG_DEBUG("programRelay momentWlaczeniaMs=%d, mojCzasDzialaniaMs=%d, minelo=%d\n", momentWlaczeniaMs, mojCzasDzialaniaMs, minelo);
     return 1+(mojCzasDzialaniaMs - minelo) / 1000;
 }
+
+  void SprinklerProgramRelay::startCycleNow(bool scheduled) { 
+      turnOn(); 
+      runScheduled = scheduled; 
+      programInProgress = true;
+  }

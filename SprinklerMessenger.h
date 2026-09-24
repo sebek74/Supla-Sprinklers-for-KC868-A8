@@ -2,7 +2,7 @@
 #include <supla/sensor/general_purpose_measurement.h>
 
 #define QUEUE_SIZE 20 // Rozmiar kolejki (maksymalnie 20 zdarzeń w pamięci)
-#define INTERVAL_STEP 10000 
+#define INTERVAL_STEP 2000 
 
 enum Msg {
   PUMP_ON = 1,
@@ -56,17 +56,16 @@ public:
 
 
   // Funkcja dodająca zdarzenie do kolejki (wywoływana w dowolnym miejscu kodu)
-  void sendMessage(Msg code) {
+  void sendMessage(Msg code, int32_t param=0) {
     if (triggerChannel == nullptr) return;
     int nextHead = (queueHead + 1) % QUEUE_SIZE;
     // Sprawdzenie, czy kolejka nie jest pełna
     if (nextHead != queueTail) {
-      eventQueue[queueHead] = (double)code;
+      eventQueue[queueHead] = (double)code + ((double)param/1000);
+      SUPLA_LOG_DEBUG("Messenger: dodano do kolejki kod: %f\n", eventQueue[queueHead]);
       queueHead = nextHead;
-      Serial.print("Dodano do kolejki kod: ");
-      Serial.println(code);
     } else {
-      Serial.println("Błąd: Kolejka zdarzeń jest pełna!");
+      SUPLA_LOG_ERROR("Messenger: Błąd: Kolejka zdarzeń jest pełna!\n");
     }
   }
 
@@ -83,8 +82,7 @@ public:
 
           if (triggerChannel) {
             triggerChannel->setValue(codeToSend);
-            Serial.print(">>> SUPLA: Wysyłam kod zdarzenia: ");
-            Serial.println(codeToSend);
+            SUPLA_LOG_DEBUG("Messenger: Wysyłam kod zdarzenia: %f\n", codeToSend);
           }
           
           lastActionTime = currentMillis;
@@ -97,7 +95,7 @@ public:
         if (currentMillis - lastActionTime >= INTERVAL_STEP) {
           if (triggerChannel) {
             triggerChannel->setValue(0.0);
-            Serial.println(">>> SUPLA: Reset kanału do 0.0");
+            SUPLA_LOG_DEBUG("Messenger: Reset kanału do 0.0");
           }
           lastActionTime = currentMillis;
           currentState = STATE_SENDING_ZERO;

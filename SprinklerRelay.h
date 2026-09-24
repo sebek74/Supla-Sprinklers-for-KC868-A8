@@ -58,7 +58,8 @@ enum ActionId {
   ActionTogglePump, 
   ActionStopAll,
   ActionRunCycle,
-  ActionScheduleCycle,
+  ActionToggleScheduleCycle,
+  ActionMessageScheduleCycle,
   AddProgramTimeSprShort,
   AddProgramTimeSprLong,
   AddProgramTimeSprBoth,
@@ -78,6 +79,8 @@ enum ActionId {
   FixedLightOff
 };
 
+#define DISABLE_MESSAGE false
+#define ENABLE_MESSAGE true
 
 class SprinklerProgramRelay;
 class SprinklerActionHandler;
@@ -143,19 +146,23 @@ public:
     static Supla::Control::Relay* getPumpRelay() { return relay[RelayId::Pump]; }
     static bool isPumpOn() { return relay[RelayId::Pump]->isOn(); }
     static bool isScheduleCycleEnabled() { return relay[RelayId::ScheduleCycle]->isOn(); }
-    static void disableScheduleCycle() { relay[RelayId::ScheduleCycle]->turnOff(); }
+    static bool enableNextMessage;
+    static void disableScheduleCycle(bool enableMessage) { 
+      enableNextMessage = enableMessage;
+      relay[RelayId::ScheduleCycle]->turnOff(); 
+    }
 
     static ActionId getTankStatus();
     static void nextEditValue();
     static bool isDoorOpen() { return !doorSensor->getValue(); }
     static bool isLightOn() { return relay[RelayId::FixedLight]->isOn(); }
 
-    uint32_t getTimerRemainingTimeSec();
+    //uint32_t getTimerRemainingTimeSec();
     bool getRequiresPump() { return requiresPump; }
     void turnOn(_supla_int_t duration = 0) override;
-    void turnOff(_supla_int_t duration = 0) override;
-    void iterateAlways() override;
-    int32_t handleNewValueFromServer(TSD_SuplaChannelNewValue *newValue) override;
+    //void turnOff(_supla_int_t duration = 0) override;
+    //void iterateAlways() override;
+    //int32_t handleNewValueFromServer(TSD_SuplaChannelNewValue *newValue) override;
     
     static uint32_t getScheduledProgramTime(int relayId);
 

@@ -59,6 +59,8 @@ char* sensorNames [] = {
   ""
 };
 
+bool SprinklerRelay::enableNextMessage = true;
+
 class SprinklerActionHandler : public Supla::ActionHandler {
   public:
     void handleAction(int event, int action) override {
@@ -120,12 +122,16 @@ class SprinklerActionHandler : public Supla::ActionHandler {
           //SprinklerRelay::getRelayById(RelayId::RunCycleNow)->setStoredTurnOnDurationMs(6000);
           SprinklerRelay::getProgramRelay()->startCycleNow(false);
           break;
-        case ActionId::ActionScheduleCycle:
+        case ActionId::ActionToggleScheduleCycle:
           SprinklerRelay::getRelayById(RelayId::ScheduleCycle)->toggle();
-          if (SprinklerRelay::getRelayById(RelayId::ScheduleCycle)->isOn())
-              messenger.sendMessage(Msg::SCHEDULE_ON);
+          break;
+        case ActionId::ActionMessageScheduleCycle:
+          if (SprinklerRelay::enableNextMessage)
+            if (SprinklerRelay::getRelayById(RelayId::ScheduleCycle)->isOn())
+              messenger.sendMessage(Msg::SCHEDULE_ON, config.getScheduleHour());
             else
               messenger.sendMessage(Msg::SCHEDULE_OFF);
+            SprinklerRelay::enableNextMessage = true;
           break;
         case ActionId::AddProgramTimeSprShort:
           if (SprinklerRelay::getProgramRelay()->isOn())
@@ -240,7 +246,7 @@ void SprinklerRelay::registerRelays() {
  
   BUTTON_SETUP(RelayId::BackSprinklers);
   button->addAction(ActionId::NextEditValue, sprinklerActionHandler, Supla::ON_CLICK_1);
-  button->addAction(ActionId::ActionScheduleCycle, sprinklerActionHandler, Supla::ON_HOLD);
+  button->addAction(ActionId::ActionToggleScheduleCycle, sprinklerActionHandler, Supla::ON_HOLD);
 
   // przekaźnik światła na złączu S3 z przyciskiem do przekaźnika kropelkowego ogród
   BUTTON_SETUP(RelayId::_ShedLightSwitchButton);
@@ -298,6 +304,7 @@ void SprinklerRelay::registerRelays() {
   relay[RelayId::StopAll]->addAction(ActionId::ActionStopAll, sprinklerActionHandler, Supla::ON_TURN_ON);
   relay[RelayId::FixedLight]->addAction(ActionId::FixedLightOn, sprinklerActionHandler, Supla::ON_TURN_ON);
   relay[RelayId::FixedLight]->addAction(ActionId::FixedLightOff, sprinklerActionHandler, Supla::ON_TURN_OFF);
+  relay[RelayId::ScheduleCycle]->addAction(ActionId::ActionMessageScheduleCycle, sprinklerActionHandler, Supla::ON_CHANGE);
 
   char relayName[64];
   for (int id=0; id<=RelayId::_LastRelay ;id++) {
@@ -564,17 +571,17 @@ void SprinklerRelay::ticTacTimer() {
     scheduleBlockExecuted = false;
   
   // wysłanie komunikatu o wskazanej godzinie
+  #ifndef DEBUG // unikaj komunikatów co minutę
   if (config.getMessageHour()>-1) {
     time_t messageTime = config.makeMessageTimeToday(); 
     time_t now = time(nullptr);
     
     if (messageTime==now) {
         if (!messageBlockExecuted) {
-          if (isScheduleCycleEnabled())
-            if (calculateProgramTimeMs()>0)
-              messenger.sendMessage(Msg::DAILY_MESSAGE_ENABLED);
-            else  
-              messenger.sendMessage(Msg::DAILY_MESSAGE_NO_WORK);
+          if (isScheduleCycleEnabled()) {
+              uint32_t scheduledTime = calculateProgramTimeMs() / MS_IN_MIN;
+              messenger.sendMessage((scheduledTime>0) ? Msg::DAILY_MESSAGE_ENABLED: Msg::DAILY_MESSAGE_NO_WORK, scheduledTime);
+          }
           else
             messenger.sendMessage(Msg::DAILY_MESSAGE_DISABLED);
         }
@@ -582,6 +589,7 @@ void SprinklerRelay::ticTacTimer() {
     } else
       messageBlockExecuted = false;
   }
+  #endif
 
   // wysłanie komunikatu o włączonym świetle
   if (fixedLightStartMs>0 && fixedLightStartMs+30*60*1000<millis()) {
@@ -631,7 +639,7 @@ void SprinklerRelay::ticTacTimer() {
 
   // szukam kolejnego kroku programu i go uruchamiam
   #define NEXT_STEP(valve, valveShortTime, valveLongTime) \
-   setTime = getScheduledProgramTime(RelayId::FrontSprinklers); \
+   setTime = getScheduledProgramTime(valve); \
     if (setTime>0) { \
       relay[valve]->turnOn(setTime*MS_IN_MIN); \
       relay[valveShortTime]->turnOff(); \
@@ -651,57 +659,9 @@ void SprinklerRelay::ticTacTimer() {
 
 // overrides
 
+// włącz zawór zawsze zgodnie z długością ustawionego programu
 void SprinklerRelay::turnOn(_supla_int_t duration) {
-  mojCzasDzialaniaMs = /*duration;*/getScheduledProgramTime(this->myRelayId)*MS_IN_MIN;
-  //duration = mojCzasDzialaniaMs;       
-  momentWlaczeniaMs = millis();
-  czyOdlicza = true;
-  Relay::turnOn(mojCzasDzialaniaMs);
-  this->durationMs = mojCzasDzialaniaMs;
+  uint32_t overrideDuration = getScheduledProgramTime(this->myRelayId)*MS_IN_MIN;
+  Relay::turnOn(overrideDuration);
+  this->durationMs = overrideDuration;
 } 
-
-void SprinklerRelay::turnOff(_supla_int_t duration) {
-  czyOdlicza = false;
-  Relay::turnOff(duration);
-}
-
-// Nadpisujemy pętlę logiczną, aby kontrolować stan odliczania
-void SprinklerRelay::iterateAlways() {
-    Supla::Control::Relay::iterateAlways();
-
-    // Jeśli czas minął, upewniamy się, że flaga odliczania zgasła
-    if (czyOdlicza && (millis() - momentWlaczeniaMs >= mojCzasDzialaniaMs)) {
-        czyOdlicza = false;
-    }
-}
-
-// 5. TAJNA METODA: To z niej aplikacja pobiera informację o zegarku na ekranie!
-// Nadpisujemy ją, zwracając nasz własny wyliczony czas w sekundach
-int32_t SprinklerRelay::handleNewValueFromServer(TSD_SuplaChannelNewValue *newValue) {
-    // Wywołujemy oryginalną metodę, aby SUPLA obsłużyła stan pinu
-    int32_t result = Relay::handleNewValueFromServer(newValue);
-   
-    // Jeśli przekaźnik się właśnie włączył z aplikacji, resetujemy nasz licznik
-    if (this->isOn()) {
-        if (!czyOdlicza) {
-            momentWlaczeniaMs = millis();
-            czyOdlicza = true;
-        }
-    }
-    uint32_t  val = getTimerRemainingTimeSec();
-    if (val>0)  newValue->DurationMS = val;
-    return result;
-}
-
-// Jeśli Twoja wersja biblioteka posiada metodę zwracającą pozostały czas do aplikacji,
-// to to mapowanie upewni się, że aplikacja dostanie właściwą liczbę sekund:
-uint32_t SprinklerRelay::getTimerRemainingTimeSec() {
-    if (!czyOdlicza || !this->isOn()) {
-        return 0;
-    }
-    unsigned long minelo = millis() - momentWlaczeniaMs;
-    if (minelo >= mojCzasDzialaniaMs) {
-        return 0;
-    }
-    return 1+(mojCzasDzialaniaMs - minelo) / 1000;
-}

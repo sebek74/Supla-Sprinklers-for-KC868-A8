@@ -4,6 +4,7 @@
 
 
 #define MY_DEVICE_NAME     "KC868-A8 Sterownik nawodnienia"
+#define MY_WIFI_NAME "SUPLA-KC868-A8"
 
 // Definiowanie pinów dla chipu LAN8720 (KC868-A8)
 #define ETH_ADDR        0
@@ -17,7 +18,7 @@
 #define I2C_SDA 4
 #define I2C_SCL 5
 
-// krzycisk sprzetowy wejscia w kongiguracje
+// krzycisk sprzetowy wejscia w konfiguracje
 #define BUTTON_CFG_RELAY_GPIO 0
 
 // wybierz ekran
@@ -37,12 +38,10 @@
 #define SENSOR_PAGE_TIME 5000
 #define DISPLAY_INTERVAL 250
 
-// stałe dla systemu
-
 // czas wyłączenia pompy przed zamknięciem zaworu
 #define PUMP_ADVANCE_OFF_TIME_MS 3000   
 
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
   #define MS_IN_MIN 1000
