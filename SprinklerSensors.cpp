@@ -1,7 +1,10 @@
 #include <supla/sensor/DS18B20.h>
+#include <supla/control/relay.h>
+#include <supla/sensor/binary.h>
 #include <supla/storage/storage.h>
 #include "SprinklerSensors.h"
 #include "SprinklerConfig.h"
+#include "SprinklerRelay.h"
 
 extern SprinklerConfig config;
 DallasTemperature dallas;
@@ -10,28 +13,18 @@ Supla::Sensor::DS18B20* dbSensors[16];
 void SprinklerSensors::Initialize() {
   dbSensors[0] = new Supla::Sensor::DS18B20(DALLAS_GPIO);  // get 1st sensor, initialize pin
   dallas = dbSensors[0]->getHwSensors();
-  dbSensors[0]->setInitialCaption(config.getSensorName(0));
-  char strAddr[64];
   DeviceAddress address;
   dallas.setWaitForConversion(true);
   dallas.requestTemperatures();
   dallas.setWaitForConversion(false);
-  for (int i = 1; i < dallas.getDeviceCount(); i++) {
+  for (int i = 0; i < dallas.getDeviceCount(); i++) {
     dallas.getAddress(address, i);
-    dbSensors[i] = new Supla::Sensor::DS18B20(DALLAS_GPIO, address);
+    if (i>0)
+      dbSensors[i] = new Supla::Sensor::DS18B20(DALLAS_GPIO, address);
     dbSensors[i]->setInitialCaption(config.getSensorName(i));
-    snprintf(
-        strAddr, sizeof(strAddr),
-        "{0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X}",
-        address[0],
-        address[1],
-        address[2],
-        address[3],
-        address[4],
-        address[5],
-        address[6],
-        address[7]);
-    SUPLA_LOG_DEBUG("Index %d - address %s", i, strAddr);
+    dbSensors[i]->getChannel()->setChannelNumber(RelayId::_LastRelay*3+i);
+    SUPLA_LOG_DEBUG("Sensor %d - address {0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X}", i, \
+        address[0], address[1], address[2], address[3], address[4], address[5], address[6], address[7]);
   }
 }
 

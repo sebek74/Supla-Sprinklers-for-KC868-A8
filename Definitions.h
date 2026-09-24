@@ -42,7 +42,7 @@
 // czas wyłączenia pompy przed zamknięciem zaworu
 #define PUMP_ADVANCE_OFF_TIME_MS 3000   
 
-#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
   #define MS_IN_MIN 1000

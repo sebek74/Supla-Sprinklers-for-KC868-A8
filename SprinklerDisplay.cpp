@@ -44,10 +44,10 @@ bool SprinklerDisplay::Initialize() {
  #define INVERSE_COLOR SSD1306_INVERSE
  #define BLACK_COLOR SSD1306_INVERSE
  if (!begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS, true)) { 
-    Serial.println(F("Nie znaleziono wyświetlacza SSD1306"));
+    SUPLA_LOG_ERROR("Nie znaleziono wyświetlacza SSD1306");
     return false;
   } else {
-    Serial.println(F("Wyświetlacz SSD1306 znaleziony"));
+    SUPLA_LOG_DEBUG("Wyświetlacz SSD1306 znaleziony");
     initialized = true;
     return true;
   }
@@ -57,10 +57,10 @@ bool SprinklerDisplay::Initialize() {
   #define INVERSE_COLOR SH110X_INVERSE
   #define BLACK_COLOR SH110X_BLACK
   if (!begin(SCREEN_ADDRESS, true)) { 
-    Serial.println(F("Nie znaleziono wyświetlacza SH1106"));
+    SUPLA_LOG_ERROR("Nie znaleziono wyświetlacza SH1106");
     return false;
   } else {
-    Serial.println(F("Wyświetlacz SSH1106 znaleziony"));
+    SUPLA_LOG_DEBUG("Wyświetlacz SSH1106 znaleziony");
     initialized = true;
     return true;
   }
@@ -97,7 +97,7 @@ void SprinklerDisplay::updateView() {
     uint32_t scheduledTime = SprinklerRelay::getScheduledProgramTime((RelayId)i);
     if (scheduledTime==0) continue;
     char number[4];
-    snprintf(number, 4, "%d", scheduledTime);
+    snprintf(number, sizeof(number), "%d", scheduledTime);
     int16_t x1, y1, offset;
     uint16_t w, h;
     getTextBounds(number, 0, 0, &x1, &y1, &w, &h);
@@ -138,7 +138,7 @@ void SprinklerDisplay::drawSchedulerIcon() {
         char sensorData[9];
         time_t time = config.makeScheduleTimeToday();
         struct tm* timeinfo = localtime(&time);
-        snprintf(sensorData, 9, "%d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
+        snprintf(sensorData, sizeof(sensorData), "%d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
         setFont(&ArialMT5pt7b);
         setTextColor(WHITE_COLOR);
         getTextBounds(sensorData, 0, 0, &x1, &y1, &w, &h);
@@ -212,7 +212,7 @@ void SprinklerDisplay::drawSensor() {
     enterPageTime = millis();
   }
 
-  char description[17];
+  char description[16];
   char sensorData1[12] = "", sensorData2[9] = "", sensorData3[9] = "";
  
   int16_t x1, y1;
@@ -221,8 +221,8 @@ void SprinklerDisplay::drawSensor() {
   // czas
   if (sensorPage==sensors.getSensorsAmount() && timeinfo->tm_year>120) {
     strcpy(description, "*Zegar");
-    snprintf(sensorData1, 9, "%d%s%02d", timeinfo->tm_hour, (timeinfo->tm_sec%2)?":":"~", timeinfo->tm_min);
-    snprintf(sensorData2, 9, "%s%02d", (timeinfo->tm_sec%2)?":":"~", timeinfo->tm_sec);
+    snprintf(sensorData1, sizeof(sensorData1), "%d%s%02d", timeinfo->tm_hour, (timeinfo->tm_sec%2)?":":"~", timeinfo->tm_min);
+    snprintf(sensorData2, sizeof(sensorData2), "%s%02d", (timeinfo->tm_sec%2)?":":"~", timeinfo->tm_sec);
   } // godzina startu
   else if (SprinklerRelay::isScheduleCycleEnabled() && 
           ((sensorPage==sensors.getSensorsAmount() && timeinfo->tm_year<=120) || 
@@ -230,17 +230,17 @@ void SprinklerDisplay::drawSensor() {
     strcpy(description, ")Godzina startu");
     time_t time = config.makeScheduleTimeToday();
     struct tm* timeinfo = localtime(&time);
-    snprintf(sensorData1, 9, "%d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
+    snprintf(sensorData1, sizeof(sensorData1), "%d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
   } // status drzwi
   else {
     //drawBitmap(-2, 30, termometr_bits, 32, 33, WHITE_COLOR);
     description[0] = '(';
-    strcpy(description+1, sensors.getDeviceDescription(sensorPage));
+    strncpy(description+1, sensors.getDeviceDescription(sensorPage), sizeof(description)-1);
     double calkowita;
     double ulamkowa = modf(sensors.getTemp(sensorPage), &calkowita);
-    snprintf(sensorData1, 9, "%.0f", calkowita);
-    snprintf(sensorData2, 9, ".%1.0f", fabs(ulamkowa*10));
-    snprintf(sensorData3, 9, "'C");
+    snprintf(sensorData1, sizeof(sensorData1), "%.0f", calkowita);
+    snprintf(sensorData2, sizeof(sensorData2), ".%1.0f", fabs(ulamkowa*10));
+    sprintf(sensorData3, "'C");
   }
 
   setFont(&ArialMT5pt7b);
@@ -282,7 +282,7 @@ void SprinklerDisplay::drawSensor() {
     drawBitmap(0, MIDDLE_ROW-6, door_closed_bits, 8, 12, WHITE_COLOR);
   if (SprinklerRelay::isLightOn()) {
     uint32_t remainingSec;
-    SprinklerRelay::getRelayById(RelayId::FixedLightSwitch)->getRemainingCountdownTimerSec(&remainingSec);
+    SprinklerRelay::getRelayById(RelayId::FixedLight)->getRemainingCountdownTimerSec(&remainingSec);
     if (remainingSec==0 || frameId%3<2)
       drawBitmap(0, MIDDLE_ROW+9, bulb_on_bits, 8, 14, WHITE_COLOR);
   }
@@ -480,7 +480,6 @@ void SprinklerDisplay::dimContrast() {
   if ((millis()-lastAction>DIM_TIME) && (currentContrast>1)) {
     setContrast(1);
     currentContrast = 1;
-    //Serial.println("dimming display");
   }
   if ((millis()-lastAction>OFF_TIME) && !screenOff)
   {

@@ -43,9 +43,9 @@ void setup() {
   SuplaDevice.setName(MY_DEVICE_NAME);
   //SuplaDevice.setInitialMode(Supla::InitialMode::StartInNotConfiguredMode);
   SuplaDevice.setProductId(0);
-  Serial.println(F("setup zakończony"));
+  SUPLA_LOG_DEBUG(F("setup zakończony\n"));
   SuplaDevice.begin() ;//GUID, SERVER, EMAIL, AUTHKEY);
-  Serial.println(F("begin wykonany"));
+  SUPLA_LOG_DEBUG(F("begin wykonany\n"));
   SprinklerRelay::initalizeRelays();
   messenger.Initialize();
 }

@@ -62,9 +62,7 @@ char* sensorNames [] = {
 class SprinklerActionHandler : public Supla::ActionHandler {
   public:
     void handleAction(int event, int action) override {
-      char txt[128];
-      sprintf(txt, "action event: %d %d", event, action);
-      Serial.println(txt);
+      SUPLA_LOG_DEBUG("action event: %d %d", event, action);
       display.restoreFullContrast();
       Supla::Control::Relay* pump;
       
@@ -104,12 +102,15 @@ class SprinklerActionHandler : public Supla::ActionHandler {
             break;
         case ActionId::ActionStopAll:
           SprinklerRelay::turnOffAll();
-          messenger.sendMessage(Msg::ALL_OFF);
           break;
         case ActionId::ActionTogglePump:
           pump = SprinklerRelay::getRelayById(RelayId::Pump);
           if (SprinklerRelay::getPumpRelay()->isOn() && !SprinklerRelay::isPumpRequired())
             messenger.sendMessage(Msg::PUMP_ON);
+          if (SprinklerRelay::getPumpRelay()->isOn())
+            SprinklerRelay::pumpStartMs = millis();
+          else
+            SprinklerRelay::pumpStartMs = 0;
           break;
         case ActionId::ActionRunCycle:
           //relay[RelayId::RunCycleNow]->enableCountdownTimerFunction();
@@ -166,11 +167,20 @@ class SprinklerActionHandler : public Supla::ActionHandler {
           if (display.restoreFullContrast()) break;
           SprinklerRelay::nextEditValue();
           break;
+        case FixedLightOn:
+          SprinklerRelay::fixedLightStartMs = millis();
+          break;
+        case FixedLightOff:
+          SprinklerRelay::fixedLightStartMs = 0;
+          break;
       } 
     }
 };
 
 SprinklerActionHandler sprinklerActionHandler;
+int32_t SprinklerRelay::fixedLightStartMs = 0;
+int32_t SprinklerRelay::pumpStartMs = 0;
+
 
 void SprinklerRelay::registerRelays() {
 
@@ -200,18 +210,17 @@ void SprinklerRelay::registerRelays() {
     relay[i]->setDefaultStateRestore();
   }
 
-  relay[RelayId::FixedLightSwitch] = new Supla::Control::Relay(32, true);
-  relay[RelayId::FixedLightSwitch]->setDefaultStateOff();
-  relay[RelayId::FixedLightSwitch]->getChannel()->setDefault(SUPLA_CHANNELFNC_LIGHTSWITCH);
-  relay[RelayId::TimedLightSwitch] = new Supla::Control::VirtualRelay();    // włącz aby uruchomić czasówkę na fixedlightswitch (wyłącza się sam po chwili od uruchomienia)
-  relay[RelayId::TimedLightSwitch]->setDefaultStateOff();
-  relay[RelayId::TimedLightSwitch]->getChannel()->setDefault(SUPLA_CHANNELFNC_LIGHTSWITCH);
+  relay[RelayId::FixedLight] = new Supla::Control::Relay(32, true);
+  relay[RelayId::FixedLight]->setDefaultStateOff();
+  relay[RelayId::FixedLight]->getChannel()->setDefault(SUPLA_CHANNELFNC_LIGHTSWITCH);
+  relay[RelayId::TimedLight] = new Supla::Control::VirtualRelay();    // włącz aby uruchomić czasówkę na FixedLight (wyłącza się sam po chwili od uruchomienia)
+  relay[RelayId::TimedLight]->setDefaultStateOff();
+  relay[RelayId::TimedLight]->getChannel()->setDefault(SUPLA_CHANNELFNC_LIGHTSWITCH);
 
   // drugi przekaźnik, na S4, bez powiązania z przyciskiem
-  relay[RelayId::ExtraSwitch] = new Supla::Control::Relay(33, true);
-  relay[RelayId::ExtraSwitch]->setDefaultStateOff();
-  relay[RelayId::ExtraSwitch]->getChannel()->setDefault(SUPLA_CHANNELFNC_POWERSWITCH);
-
+  relay[RelayId::Extra] = new Supla::Control::Relay(33, true);
+  relay[RelayId::Extra]->setDefaultStateOff();
+  relay[RelayId::Extra]->getChannel()->setDefault(SUPLA_CHANNELFNC_POWERSWITCH);
 
   // fizyczne przyciski
   #define BUTTON_SETUP(relayId) \
@@ -234,17 +243,16 @@ void SprinklerRelay::registerRelays() {
   button->addAction(ActionId::ActionScheduleCycle, sprinklerActionHandler, Supla::ON_HOLD);
 
   // przekaźnik światła na złączu S3 z przyciskiem do przekaźnika kropelkowego ogród
-  
   BUTTON_SETUP(RelayId::_ShedLightSwitchButton);
   button->setOnLoadConfigType(Supla::Control::Button::OnLoadConfigType::LOAD_BUTTON_SETUP_ONLY);
-  button->addAction(Supla::TOGGLE, relay[RelayId::TimedLightSwitch], Supla::ON_CLICK_1);
-  button->addAction(Supla::TOGGLE, relay[RelayId::FixedLightSwitch], Supla::ON_HOLD);
+  button->addAction(Supla::TOGGLE, relay[RelayId::TimedLight], Supla::ON_CLICK_1);
+  button->addAction(Supla::TOGGLE, relay[RelayId::FixedLight], Supla::ON_HOLD);
   auto at = new Supla::Control::ActionTrigger();
-  at->getChannel()->setChannelNumber(RelayId::_LastRelay+RelayId::FixedLightSwitch);
-  at->setRelatedChannel(relay[RelayId::FixedLightSwitch]);
+  at->getChannel()->setChannelNumber(RelayId::_LastRelay+RelayId::_ShedLightSwitchButton);
+  at->setRelatedChannel(relay[RelayId::FixedLight]);
   at->attach(button);
 
-  // przycisk warzywniaka jako wolny niezwiązany z przekaźnikiem (do przypisania w chmurze do uruchamiania światła przed kotłownią)
+  // action trigger na 5tym wejsciu PCF (do przypisania w chmurze do uruchamiania światła przed kotłownią)
   BUTTON_SETUP(RelayId::_BackHouseSwitchButton);
   button->setInitialCaption(sensorNames[RelayId::_BackHouseSwitchButton]);
   at = new Supla::Control::ActionTrigger();
@@ -252,7 +260,7 @@ void SprinklerRelay::registerRelays() {
   at->setInitialCaption(sensorNames[RelayId::_BackHouseSwitchButton]);
   at->attach(button);
 
-  Serial.println(F("dodaję sensory w studni"));
+  SUPLA_LOG_DEBUG("dodaję sensory w studni");
 
   // sensory poziomu wody na 6 i 7mym wejściu PCF
   lowWaterSensor = new Supla::Sensor::Binary(inPcf, RelayId::RefillTank, true, true);
@@ -271,7 +279,7 @@ void SprinklerRelay::registerRelays() {
   highWaterSensor->addAction(ActionId::TankDoNothing, sprinklerActionHandler, Supla::ON_TURN_OFF);
   highWaterSensor->disableActionsInConfigMode();
 
-  // kontaktron szopa na wejściu 3 (boczne zraszacze)
+  // kontaktron szopa na wejściu 3 PCF
   doorSensor = new Supla::Sensor::Binary(inPcf, RelayId::_DoorSensor, true, true);
   doorSensor->setInitialCaption(sensorNames[RelayId::_DoorSensor]);
   doorSensor->getChannel()->setDefault(SUPLA_CHANNELFNC_OPENINGSENSOR_DOOR);
@@ -279,7 +287,7 @@ void SprinklerRelay::registerRelays() {
   doorSensor->addAction(ActionId::DoorOpen, sprinklerActionHandler, Supla::ON_TURN_OFF); 
   doorSensor->disableActionsInConfigMode();
 
-  Serial.println(F("ustawiam akcje dla przekaznikow"));
+  SUPLA_LOG_DEBUG("ustawiam akcje dla przekaznikow");
   
   // domyślne nazwy elementów kontrolnych i akcje
   
@@ -288,8 +296,10 @@ void SprinklerRelay::registerRelays() {
   relay[RelayId::Pump]->addAction(ActionId::ActionTogglePump, sprinklerActionHandler, Supla::ON_CHANGE);
   relay[RelayId::StopAll]->setDefaultImpulseDurationMs(2000);
   relay[RelayId::StopAll]->addAction(ActionId::ActionStopAll, sprinklerActionHandler, Supla::ON_TURN_ON);
+  relay[RelayId::FixedLight]->addAction(ActionId::FixedLightOn, sprinklerActionHandler, Supla::ON_TURN_ON);
+  relay[RelayId::FixedLight]->addAction(ActionId::FixedLightOff, sprinklerActionHandler, Supla::ON_TURN_OFF);
 
-  char relayName[65];
+  char relayName[64];
   for (int id=0; id<=RelayId::_LastRelay ;id++) {
     if (id!=RelayId::RunCycleNow) {
       relay[id]->addAction(ActionId::RestoreDisplay, sprinklerActionHandler, Supla::ON_TURN_ON);
@@ -301,35 +311,35 @@ void SprinklerRelay::registerRelays() {
       case RelayId::SideTimeShort:
         relay[id]->addAction(ActionId::AddProgramTimeSprShort, sprinklerActionHandler, Supla::ON_TURN_ON);
         relay[id]->addAction(ActionId::SubProgramTimeSprShort, sprinklerActionHandler, Supla::ON_TURN_OFF);
-        snprintf(relayName, 64, "%s %dm", relayNames[id], config.getSprShort());
+        snprintf(relayName, sizeof(relayName), "%s %dm", relayNames[id], config.getSprShort());
         break;
       case RelayId::FrontTimeLong:
       case RelayId::BackTimeLong:
       case RelayId::SideTimeLong:
         relay[id]->addAction(ActionId::AddProgramTimeSprLong, sprinklerActionHandler, Supla::ON_TURN_ON);
         relay[id]->addAction(ActionId::SubProgramTimeSprLong, sprinklerActionHandler, Supla::ON_TURN_OFF);
-        snprintf(relayName, 64, "%s %dm", relayNames[id], config.getSprLong());
+        snprintf(relayName, sizeof(relayName), "%s %dm", relayNames[id], config.getSprLong());
         break;
       case RelayId::FlowersTimeShort:
       case RelayId::VegetablesTimeShort:
         relay[id]->addAction(ActionId::AddProgramTimeDropShort, sprinklerActionHandler, Supla::ON_TURN_ON);
         relay[id]->addAction(ActionId::SubProgramTimeDropShort, sprinklerActionHandler, Supla::ON_TURN_OFF);
-        snprintf(relayName, 64, "%s %dm", relayNames[id], config.getDropShort());
+        snprintf(relayName, sizeof(relayName), "%s %dm", relayNames[id], config.getDropShort());
         break;
       case RelayId::FlowersTimeLong:
       case RelayId::VegetablesTimeLong:
         relay[id]->addAction(ActionId::AddProgramTimeDropLong, sprinklerActionHandler, Supla::ON_TURN_ON);
         relay[id]->addAction(ActionId::SubProgramTimeDropLong, sprinklerActionHandler, Supla::ON_TURN_OFF);
-        snprintf(relayName, 64, "%s %dm", relayNames[id], config.getDropLong());
+        snprintf(relayName, sizeof(relayName), "%s %dm", relayNames[id], config.getDropLong());
         break;
       default:
-        strncpy(relayName, relayNames[id], 64);
+        strncpy(relayName, relayNames[id], sizeof(relayName));
     }
     relay[id]->setInitialCaption(relayName);
     relay[id]->getChannel()->setChannelNumber(id);
   }
 
-  Serial.println(F("przekazniki ustawione"));
+  SUPLA_LOG_DEBUG("przekazniki ustawione");
 }
 
 ActionId SprinklerRelay::getTankStatus() {
@@ -372,11 +382,12 @@ void SprinklerRelay::turnOffAll() {
   if (relay[RelayId::RunCycleNow]->isOn()) relay[RelayId::RunCycleNow]->turnOff();
   if (relay[RelayId::StopAll]->isOn()) relay[RelayId::StopAll]->turnOff();
   programRelay->completeCycleNow();
+  messenger.sendMessage(Msg::ALL_OFF);
 }
 
 uint32_t SprinklerRelay::calculateProgramTimeMs() {
   uint32_t time = 0;
-  Serial.printf("USE CONFIG VALUES: %d %d %d %d\n", config.getSprShort(), config.getSprLong(), config.getDropShort(), config.getDropLong());
+  SUPLA_LOG_DEBUG("USE CONFIG VALUES: %d %d %d %d\n", config.getSprShort(), config.getSprLong(), config.getDropShort(), config.getDropLong());
   if (relay[RelayId::FrontTimeShort]->isOn()) time+=config.getSprShort();
   if (relay[RelayId::FrontTimeLong]->isOn()) time+=config.getSprLong();
   if (relay[RelayId::BackTimeShort]->isOn()) time+=config.getSprShort();
@@ -387,8 +398,17 @@ uint32_t SprinklerRelay::calculateProgramTimeMs() {
   if (relay[RelayId::FlowersTimeLong]->isOn()) time+=config.getDropLong();
   if (relay[RelayId::VegetablesTimeShort]->isOn()) time+=config.getDropShort();
   if (relay[RelayId::VegetablesTimeLong]->isOn()) time+=config.getDropLong();
-  Serial.printf("CALCULATED TIME %d, IN MS: %d\n", time, time*MS_IN_MIN);
+  SUPLA_LOG_DEBUG("CALCULATED TIME %d, IN MS: %d\n", time, time*MS_IN_MIN);
   return time*MS_IN_MIN;
+}
+
+RelayId SprinklerRelay::getActiveValveId() {
+  if (SprinklerRelay::getRelayById(RelayId::FrontSprinklers)->isOn()) return RelayId::FrontSprinklers;
+  if (SprinklerRelay::getRelayById(RelayId::BackSprinklers)->isOn()) return RelayId::BackSprinklers;
+  if (SprinklerRelay::getRelayById(RelayId::SideSprinklers)->isOn()) return RelayId::SideSprinklers;
+  if (SprinklerRelay::getRelayById(RelayId::Flowers)->isOn()) return RelayId::Flowers;
+  if (SprinklerRelay::getRelayById(RelayId::Vegetables)->isOn()) return RelayId::Vegetables;
+  return RelayId::Pump;
 }
 
 void SprinklerRelay::getRelayTimeText(int32_t relayId, char* result, int32_t len) {
@@ -491,14 +511,8 @@ void SprinklerRelay::nextEditValue() {
         config.incScheduleHour();
         break;
   }
-  display.pingEditMode();   // avoid leaving edit mode
-  Serial.printf("nextEditValue %d\n", display.getEditMode());
-    /*
-  BackSprinklers = 2,
-  SideSprinklers = 3,
-  Flowers = 4,
-  Vegetables = 5,
-    case */
+  display.pingEditMode();   // licz od nowa czas autoamtycznego wyjścia z trybu edycji
+  SUPLA_LOG_DEBUG("nextEditValue %d\n", display.getEditMode());
 }
 
 uint32_t SprinklerRelay::getScheduledProgramTime(int relayId) {
@@ -528,35 +542,77 @@ uint32_t SprinklerRelay::getScheduledProgramTime(int relayId) {
   return result;
 }
 
+bool scheduleBlockExecuted = false;
+bool messageBlockExecuted = false;
+
 void SprinklerRelay::ticTacTimer() {
+
+  // uruchomienie programu o danej godzinie
   time_t scheduletime = config.makeScheduleTimeToday(); 
   time_t now = time(nullptr);
   if (scheduletime==now && isScheduleCycleEnabled() && !getProgramRelay()->getProgramInProgress()) {
-    if (calculateProgramTimeMs()>0) {
-      getProgramRelay()->startCycleNow(true);
-    } else {// nic do zrobienia
-      disableScheduleCycle();
-      messenger.sendMessage(Msg::SCHEDULE_FAILED);
+    if (!scheduleBlockExecuted) {
+      if (calculateProgramTimeMs()>0) {
+        getProgramRelay()->startCycleNow(true);
+      } else {// nic do zrobienia
+        //disableScheduleCycle();
+        messenger.sendMessage(Msg::SCHEDULE_FAILED);
+      }
+      scheduleBlockExecuted = true;
     }
+  } else
+    scheduleBlockExecuted = false;
+  
+  // wysłanie komunikatu o wskazanej godzinie
+  if (config.getMessageHour()>-1) {
+    time_t messageTime = config.makeMessageTimeToday(); 
+    time_t now = time(nullptr);
+    
+    if (messageTime==now) {
+        if (!messageBlockExecuted) {
+          if (isScheduleCycleEnabled())
+            if (calculateProgramTimeMs()>0)
+              messenger.sendMessage(Msg::DAILY_MESSAGE_ENABLED);
+            else  
+              messenger.sendMessage(Msg::DAILY_MESSAGE_NO_WORK);
+          else
+            messenger.sendMessage(Msg::DAILY_MESSAGE_DISABLED);
+        }
+        messageBlockExecuted = true;
+    } else
+      messageBlockExecuted = false;
   }
 
+  // wysłanie komunikatu o włączonym świetle
+  if (fixedLightStartMs>0 && fixedLightStartMs+30*60*1000<millis()) {
+    messenger.sendMessage(Msg::LIGHT_ON_30MIN);
+    fixedLightStartMs=0;
+  }
+
+  // wysłanie komunikatu o włączonej pompie
+  if (pumpStartMs>0 && pumpStartMs+60*60*1000<millis() && !programRelay->getProgramInProgress()) {
+    messenger.sendMessage(Msg::PUMP_ON_60MIN);
+    pumpStartMs=0;
+  }
+
+
   // synchronizacja relay dla światła
-  if (relay[RelayId::TimedLightSwitch]->isOn()) {
-    if (!relay[RelayId::FixedLightSwitch]->isOn()) {
-      relay[RelayId::FixedLightSwitch]->turnOn(config.getLightActivationTimeS()*1000);
+  if (relay[RelayId::TimedLight]->isOn()) {
+    if (!relay[RelayId::FixedLight]->isOn()) {
+      relay[RelayId::FixedLight]->turnOn(config.getLightActivationTimeS()*1000);
     }
     else 
-      relay[RelayId::FixedLightSwitch]->turnOff();
-    relay[RelayId::TimedLightSwitch]->turnOff();
+      relay[RelayId::FixedLight]->turnOff();
+    relay[RelayId::TimedLight]->turnOff();
   }
     
   uint32_t remaininingTime, setTime;
   
   bool isNextValveRequiresPump = relay[RelayId::EmptyTank]->isOn();
-  if (!isNextValveRequiresPump)
+  if (!isNextValveRequiresPump) // jeśli opóżnianie jest włączone to nie możemy planować wyłączenia pompy już teraz
     for (int valveId = RelayId::_FirstValve; valveId<=_LastValve; valveId++) {
       if (getScheduledProgramTime(valveId)>0) {   //znajdz następny krok programu w kolejności
-        isNextValveRequiresPump = getValveById(valveId)->getRequiresPump();
+        isNextValveRequiresPump = getValveById(valveId)->getRequiresPump(); // czy następny program wymaga pompy
         break;
       }
     }
@@ -566,91 +622,34 @@ void SprinklerRelay::ticTacTimer() {
   if (activeRelayId>0)
     SprinklerRelay::getValveById(activeRelayId)->getRemainingCountdownTimerSec(&remainingSeconds);
 
+  // wyłącz pompę kilka sekund przed zamknięciem zaworu jeśli następny krok nie wymaga pompy i nie jest włączone opróżnianie
   if (!isNextValveRequiresPump && remainingSeconds>0 && remainingSeconds<=PUMP_ADVANCE_OFF_TIME_MS/1000 && SprinklerRelay::getPumpRelay()->isOn())
     SprinklerRelay::getPumpRelay()->turnOff();
   
   if (remainingSeconds>0 || !programRelay->isOn()) // żadne akcje dalej niepotrzebne gdy program nie działa lub nie wymaga jeszcze kolejnego kroku
     return;
 
-  /*
-  if (relay[RelayId::FrontSprinklers]->getRemainingCountdownTimerSec(&remaininingTime) &&
-    remaininingTime>0 && 
-    relay[RelayId::FrontSprinklers]->isOn())
-    return;
-  if (relay[RelayId::BackSprinklers]->getRemainingCountdownTimerSec(&remaininingTime) &&
-    remaininingTime>0 && 
-    relay[RelayId::BackSprinklers]->isOn())
-    return;
-  if (relay[RelayId::SideSprinklers]->getRemainingCountdownTimerSec(&remaininingTime) &&
-    remaininingTime>0 && 
-    relay[RelayId::SideSprinklers]->isOn())
-    return;
-  if (relay[RelayId::Flowers]->getRemainingCountdownTimerSec(&remaininingTime) &&
-    remaininingTime>0 && 
-    relay[RelayId::Flowers]->isOn())
-    return;
-  if (relay[RelayId::Vegetables]->getRemainingCountdownTimerSec(&remaininingTime) &&
-    remaininingTime>0 && 
-    relay[RelayId::Vegetables]->isOn())
-    return;
-*/
+  // szukam kolejnego kroku programu i go uruchamiam
+  #define NEXT_STEP(valve, valveShortTime, valveLongTime) \
+   setTime = getScheduledProgramTime(RelayId::FrontSprinklers); \
+    if (setTime>0) { \
+      relay[valve]->turnOn(setTime*MS_IN_MIN); \
+      relay[valveShortTime]->turnOff(); \
+      relay[valveLongTime]->turnOff(); \
+      if (getValveById(valve)->getRequiresPump() && !getPumpRelay()->isOn()) \
+        getPumpRelay()->turnOn(); \
+      programRelay->updateRemainingTime(setTime*MS_IN_MIN); \
+      return; \
+    }  
 
-  // szukam kolejnego kroku programu
-  setTime = getScheduledProgramTime(RelayId::FrontSprinklers);
-  if (setTime>0) {
-    relay[RelayId::FrontSprinklers]->turnOn(setTime*MS_IN_MIN);
-    relay[RelayId::FrontTimeShort]->turnOff();
-    relay[RelayId::FrontTimeLong]->turnOff();
-    if (!relay[RelayId::Pump]->isOn()) relay[RelayId::Pump]->turnOn();
-    programRelay->updateRemainingTime(setTime*MS_IN_MIN);
-    return;
-  } 
-
-  setTime = getScheduledProgramTime(RelayId::BackSprinklers);
-  if (setTime>0) {
-    relay[RelayId::BackSprinklers]->turnOn(setTime*MS_IN_MIN);
-    relay[RelayId::BackTimeShort]->turnOff();
-    relay[RelayId::BackTimeLong]->turnOff();
-    if (!relay[RelayId::Pump]->isOn()) relay[RelayId::Pump]->turnOn();
-    programRelay->updateRemainingTime(setTime*MS_IN_MIN);
-    return;
-  }
-   
-  setTime = getScheduledProgramTime(RelayId::SideSprinklers);
-  if (setTime>0) {
-    relay[RelayId::SideSprinklers]->turnOn(setTime*MS_IN_MIN);
-    relay[RelayId::SideTimeShort]->turnOff();
-    relay[RelayId::SideTimeLong]->turnOff();
-    if (!relay[RelayId::Pump]->isOn()) relay[RelayId::Pump]->turnOn();
-    programRelay->updateRemainingTime(setTime*MS_IN_MIN);
-    return;
-  } 
- 
-  setTime = getScheduledProgramTime(RelayId::Flowers);
-  if (setTime>0) {
-    relay[RelayId::Flowers]->turnOn(setTime*MS_IN_MIN);
-    relay[RelayId::FlowersTimeShort]->turnOff();
-    relay[RelayId::FlowersTimeLong]->turnOff();
-    if (!SprinklerRelay::isPumpRequired() && relay[RelayId::Pump]->isOn())
-      relay[RelayId::Pump]->turnOff();
-    programRelay->updateRemainingTime(setTime*MS_IN_MIN);
-    return;
-  } 
-
-  setTime = getScheduledProgramTime(RelayId::Vegetables);
-  if (setTime>0) {
-    relay[RelayId::Vegetables]->turnOn(setTime*MS_IN_MIN);
-    relay[RelayId::VegetablesTimeShort]->turnOff();
-    relay[RelayId::VegetablesTimeLong]->turnOff();
-    if (!SprinklerRelay::isPumpRequired() && relay[RelayId::Pump]->isOn())
-      relay[RelayId::Pump]->turnOff();
-    programRelay->updateRemainingTime(setTime*MS_IN_MIN);
-    return;
-  } 
+  NEXT_STEP(RelayId::FrontSprinklers, RelayId::FrontTimeShort, RelayId::FrontTimeLong)
+  NEXT_STEP(RelayId::BackSprinklers, RelayId::BackTimeShort, RelayId::BackTimeLong)
+  NEXT_STEP(RelayId::SideSprinklers, RelayId::SideTimeShort, RelayId::SideTimeLong)
+  NEXT_STEP(RelayId::Flowers, RelayId::FlowersTimeShort, RelayId::FlowersTimeLong)
+  NEXT_STEP(RelayId::Vegetables, RelayId::VegetablesTimeShort, RelayId::VegetablesTimeLong)
 }
 
 // overrides
-
 
 void SprinklerRelay::turnOn(_supla_int_t duration) {
   mojCzasDzialaniaMs = /*duration;*/getScheduledProgramTime(this->myRelayId)*MS_IN_MIN;
@@ -658,18 +657,15 @@ void SprinklerRelay::turnOn(_supla_int_t duration) {
   momentWlaczeniaMs = millis();
   czyOdlicza = true;
   Relay::turnOn(mojCzasDzialaniaMs);
-  //Serial.printf("handle turnOn!!! %d/%d", duration, this->durationMs);
   this->durationMs = mojCzasDzialaniaMs;
-  //relay[RelayId::Pump]->turnOn();
 } 
 
 void SprinklerRelay::turnOff(_supla_int_t duration) {
-    czyOdlicza = false;
-    Relay::turnOff(duration);
-    //relay[RelayId::Pump]->turnOff();
+  czyOdlicza = false;
+  Relay::turnOff(duration);
 }
 
-// 4. KLUCZ: Nadpisujemy pętlę logiczną, aby kontrolować stan odliczania
+// Nadpisujemy pętlę logiczną, aby kontrolować stan odliczania
 void SprinklerRelay::iterateAlways() {
     Supla::Control::Relay::iterateAlways();
 
@@ -697,7 +693,7 @@ int32_t SprinklerRelay::handleNewValueFromServer(TSD_SuplaChannelNewValue *newVa
     return result;
 }
 
-// Jeśli Twoja wersja biblioteki posiada metodę zwracającą pozostały czas do aplikacji,
+// Jeśli Twoja wersja biblioteka posiada metodę zwracającą pozostały czas do aplikacji,
 // to to mapowanie upewni się, że aplikacja dostanie właściwą liczbę sekund:
 uint32_t SprinklerRelay::getTimerRemainingTimeSec() {
     if (!czyOdlicza || !this->isOn()) {
@@ -708,31 +704,4 @@ uint32_t SprinklerRelay::getTimerRemainingTimeSec() {
         return 0;
     }
     return 1+(mojCzasDzialaniaMs - minelo) / 1000;
-}
-
-/*
-uint32_t SprinklerRelay::getRemainingTimeSec() {
-  uint32_t remaininingTime = ((SprinklerRelay*)relay[RelayId::FrontSprinklers])->getTimerRemainingTimeSec();
-  if (remaininingTime>0) return remaininingTime;
-  remaininingTime = ((SprinklerRelay*)relay[RelayId::BackSprinklers])->getTimerRemainingTimeSec();
-  if (remaininingTime>0) return remaininingTime;
-  remaininingTime = ((SprinklerRelay*)relay[RelayId::SideSprinklers])->getTimerRemainingTimeSec();
-  if (remaininingTime>0) return remaininingTime;
-  remaininingTime = ((SprinklerRelay*)relay[RelayId::Flowers])->getTimerRemainingTimeSec();
-  if (remaininingTime>0) return remaininingTime;
-  remaininingTime = ((SprinklerRelay*)relay[RelayId::Vegetables])->getTimerRemainingTimeSec();
-  if (remaininingTime>0) return remaininingTime;
-  
-  int32_t remainingSeconds = 0;
-  getRemainingCountdownTimerSec(&remainingSeconds);
-  return remainingSeconds;
-}*/
-
-RelayId SprinklerRelay::getActiveValveId() {
-  if (SprinklerRelay::getRelayById(RelayId::FrontSprinklers)->isOn()) return RelayId::FrontSprinklers;
-  if (SprinklerRelay::getRelayById(RelayId::BackSprinklers)->isOn()) return RelayId::BackSprinklers;
-  if (SprinklerRelay::getRelayById(RelayId::SideSprinklers)->isOn()) return RelayId::SideSprinklers;
-  if (SprinklerRelay::getRelayById(RelayId::Flowers)->isOn()) return RelayId::Flowers;
-  if (SprinklerRelay::getRelayById(RelayId::Vegetables)->isOn()) return RelayId::Vegetables;
-  return RelayId::Pump;
 }

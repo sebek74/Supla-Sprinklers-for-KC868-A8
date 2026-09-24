@@ -41,9 +41,9 @@ enum RelayId {
   VegetablesTimeLong = 20,
   StopAll = 21,
     _LastProgram = 21,
-  FixedLightSwitch = 22,
-  TimedLightSwitch = 23,
-  ExtraSwitch = 24,
+  FixedLight = 22,
+  TimedLight = 23,
+  Extra = 24,
     _LastRelay = 24
 };
 
@@ -73,15 +73,19 @@ enum ActionId {
   SubProgramTimeDropBoth,
   NextEditMode,
   NextEditValue,
-  DoorOpen
+  DoorOpen,
+  FixedLightOn,
+  FixedLightOff
 };
 
 
 class SprinklerProgramRelay;
+class SprinklerActionHandler;
 
 class SprinklerRelay : public Supla::Control::Relay {
-
+  
 private:
+  friend class SprinklerActionHandler;
   uint32_t mojCzasDzialaniaMs = 4000;
   unsigned long momentWlaczeniaMs = 0;
   bool czyOdlicza = false;
@@ -99,7 +103,8 @@ protected:
   inline static Supla::Sensor::Binary* highWaterSensor= nullptr;
   inline static Supla::Sensor::Binary* doorSensor= nullptr;    
   inline static SprinklerProgramRelay* programRelay =nullptr;
-
+  static int32_t fixedLightStartMs;
+  static int32_t pumpStartMs;
 
 public:
   static void registerRelays(); 
@@ -143,7 +148,7 @@ public:
     static ActionId getTankStatus();
     static void nextEditValue();
     static bool isDoorOpen() { return !doorSensor->getValue(); }
-    static bool isLightOn() { return relay[RelayId::FixedLightSwitch]->isOn(); }
+    static bool isLightOn() { return relay[RelayId::FixedLight]->isOn(); }
 
     uint32_t getTimerRemainingTimeSec();
     bool getRequiresPump() { return requiresPump; }

@@ -18,7 +18,7 @@ class SprinklerSection : public Supla::HtmlElement {
 
 class SprinklerConfig  : public Supla::LittleFsConfig {
   private:
-    int32_t sprShort, sprLong, dropShort, dropLong, scheduleHour;
+    int32_t sprShort, sprLong, dropShort, dropLong, scheduleHour, messageHour;
     int32_t lightActivationTimeS;
     char sensorNames[8][17];
     Supla::Network *network;
@@ -32,6 +32,7 @@ class SprinklerConfig  : public Supla::LittleFsConfig {
       lightActivationTimeS = 120;
       //strcpy(scheduleTime, "4:00");
       scheduleHour = 4; // 4:00
+      messageHour = 22;
       network = nullptr;
       //wifiNetwork = std::nullptr_t;
       //ethNetwork = std::nullptr_t;
@@ -53,6 +54,7 @@ class SprinklerConfig  : public Supla::LittleFsConfig {
       scheduleHour=(scheduleHour+1)%24;
       setInt32("SCHEDULE_TIME", scheduleHour);
     }
+    int32_t getMessageHour() { return messageHour; };
     int32_t getLightActivationTimeS() { return lightActivationTimeS; };
     char* getSensorName(int32_t id) { return sensorNames[id]; };
     
@@ -61,6 +63,17 @@ class SprinklerConfig  : public Supla::LittleFsConfig {
       struct tm* timeinfo = localtime(&now);
 #ifndef DEBUG // ustaw bieżący czas w trybie DEBUG, włączy się w następnej minucie
       timeinfo->tm_hour = scheduleHour;
+      timeinfo->tm_min  = 0;
+#endif
+      timeinfo->tm_sec  = 0;
+      return mktime(timeinfo);
+    }
+
+    time_t makeMessageTimeToday() {
+      time_t now = time(nullptr);
+      struct tm* timeinfo = localtime(&now);
+#ifndef DEBUG // ustaw bieżący czas w trybie DEBUG, włączy się w następnej minucie
+      timeinfo->tm_hour = messageHour;
       timeinfo->tm_min  = 0;
 #endif
       timeinfo->tm_sec  = 0;

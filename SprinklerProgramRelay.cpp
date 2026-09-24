@@ -14,21 +14,6 @@
 
 extern SprinklerMessenger messenger;
 extern SprinklerDisplay display;
-/*
- void SprinklerProgramRelay::handleAction(int event, int action) {
-  //(void)(event);
-  Serial.println("handle action turn_on!!!");
-  switch (action) {
-    case Supla::Action::TURN_ON:
-      if (SprinklerRelay::calculateProgramTimeMs()==0)
-        turnOff();
-      break;
-    case Supla::Action::TURN_OFF:
-      SprinklerRelay::completeProgram();
-      break;
-  }
-}*/
-
 bool overridetime = true;
 void SprinklerProgramRelay::updateRemainingTime(_supla_int_t addDuration) {
   //mojCzasDzialaniaMs += addDuration;
@@ -38,7 +23,7 @@ void SprinklerProgramRelay::updateRemainingTime(_supla_int_t addDuration) {
   turnOff();
   turnOn(mojCzasDzialaniaMs-(millis()-momentWlaczeniaMs)+addDuration);  // Resetujemy punkt odniesienia do teraz
   overridetime = true;
-  Serial.printf("handle SprinklerProgramRelay updateRemainingTime!!! %d/%d\n", addDuration, this->durationMs);
+  SUPLA_LOG_DEBUG("handle SprinklerProgramRelay updateRemainingTime!!! %d/%d\n", addDuration, this->durationMs);
 }
 
 void SprinklerProgramRelay::turnOn(_supla_int_t duration) {
@@ -48,7 +33,7 @@ void SprinklerProgramRelay::turnOn(_supla_int_t duration) {
       overridetime = true;
       return;
   }
-  Serial.printf("handle SprinklerProgramRelay turnOn step 1!!! %d, %d\n", overridetime?1:0, duration);
+  SUPLA_LOG_DEBUG("handle SprinklerProgramRelay turnOn step 1!!! %d, %d\n", overridetime?1:0, duration);
   if(overridetime) {
     mojCzasDzialaniaMs = SprinklerRelay::calculateProgramTimeMs();
     messenger.sendMessage(Msg::PROGRAM_ON);
@@ -61,16 +46,15 @@ void SprinklerProgramRelay::turnOn(_supla_int_t duration) {
   momentWlaczeniaMs = millis();
   czyOdlicza = true;
   VirtualRelay::turnOn(mojCzasDzialaniaMs);
-  Serial.printf("handle SprinklerProgramRelay turnOn step 2!!! %d/%d\n", duration, this->durationMs);
+  SUPLA_LOG_DEBUG("handle SprinklerProgramRelay turnOn step 2!!! %d/%d\n", duration, this->durationMs);
   this->durationMs = mojCzasDzialaniaMs;
   programInProgress = true;
-  //relay[RelayId::Pump]->turnOn();
 } 
 
 void SprinklerProgramRelay::turnOff(_supla_int_t duration) {
     czyOdlicza = false;
     VirtualRelay::turnOff(duration);
-    Serial.printf("handle SprinklerProgramRelay turnOff!!! %d, %d\n", overridetime?1:0, duration);
+    SUPLA_LOG_DEBUG("handle SprinklerProgramRelay turnOff!!! %d, %d\n", overridetime?1:0, duration);
     if (overridetime) SprinklerRelay::completeProgram();
 }
 
@@ -103,7 +87,7 @@ int32_t SprinklerProgramRelay::handleNewValueFromServer(TSD_SuplaChannelNewValue
     }
     uint32_t  val = getCountdownTimerRemainingTimeSec();
     if (val>0)  newValue->DurationMS = val;
-    Serial.printf("handle SprinklerProgramRelay::handleNewValueFromServer!!! %d\n", val);
+    SUPLA_LOG_DEBUG("handle SprinklerProgramRelay::handleNewValueFromServer!!! %d\n", val);
     return result;
 }
 
@@ -117,14 +101,6 @@ uint32_t SprinklerProgramRelay::getCountdownTimerRemainingTimeSec() {
     if (minelo >= mojCzasDzialaniaMs) {
         return 0;
     }
-    Serial.printf("programRelay momentWlaczeniaMs=%d, mojCzasDzialaniaMs=%d, minelo=%d\n", momentWlaczeniaMs, mojCzasDzialaniaMs, minelo);
+    SUPLA_LOG_DEBUG("programRelay momentWlaczeniaMs=%d, mojCzasDzialaniaMs=%d, minelo=%d\n", momentWlaczeniaMs, mojCzasDzialaniaMs, minelo);
     return 1+(mojCzasDzialaniaMs - minelo) / 1000;
 }
-/*
-void SprinklerProgramRelay::handleAction(int event, int action) {
-  VirtualRelay::handleAction(event, action);
-  if (event==Supla::ON_TURN_OFF) {
-
-  }
-
-}*/

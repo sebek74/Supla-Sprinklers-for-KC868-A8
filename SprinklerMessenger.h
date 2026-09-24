@@ -16,7 +16,12 @@ enum Msg {
   TANK_EMPTY = 9,
   TANK_NOMINAL = 10,
   SCHEDULE_FAILED = 11,
-  DOOR_OPEN = 12
+  DOOR_OPEN = 12,
+  DAILY_MESSAGE_ENABLED = 13,
+  DAILY_MESSAGE_DISABLED = 14,
+  DAILY_MESSAGE_NO_WORK = 15,
+  PUMP_ON_60MIN = 16,
+  LIGHT_ON_30MIN = 17
 };
 
 class SprinklerMessenger {
@@ -44,8 +49,8 @@ public:
   void Initialize() {
     triggerChannel = new Supla::Sensor::GeneralPurposeMeasurement();
     triggerChannel->setInitialCaption("Komunikaty ze sterownika");
-    triggerChannel->setKeepHistory(1);
-    triggerChannel->getChannel()->setChannelNumber(500);
+    //triggerChannel->setKeepHistory(1);
+    triggerChannel->getChannel()->setChannelNumber(RelayId::_LastProgram*2);
     triggerChannel->setValue(0.0);
   }
 
