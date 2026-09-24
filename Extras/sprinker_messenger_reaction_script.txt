@@ -1,0 +1,13 @@
+{% if getChannel(23857).value == 1 %}Pompa włączona.
+{% else if getChannel(23857).value == 2.0 %}Pompa wyłączona
+{% else if getChannel(23857).value == 3.0 %}Harmonogram nawodnienia włączony.
+{% else if getChannel(23857).value == 4.0 %}Harmonogram nawodnienia wyłączony.
+{% else if getChannel(23857).value == 5.0 %}Program nawodnienia rozpoczęty.
+{% else if getChannel(23857).value == 6.0 %}Program nawodnienia zakończony.
+{% else if getChannel(23857).value == 7.0 %}Wszystkie zawory i pompa wyłączone.
+{% else if getChannel(23857).value == 8.0 %}Zbiornik przepełniony! Rozpoczynam awaryjne oprożnianie
+{% else if getChannel(23857).value == 9.0 %}Zbiornik prawie pusty! Rozpoczynam dolewanie wody.
+{% else if getChannel(23857).value == 10.0 %}Zbiornik stan nominalny.
+{% else if getChannel(23857).value == 11.0 %}Harmonogram nawodnienia pominięty. Nie wskazano pracy do wykonania.
+{% else if getChannel(23857).value == 12.0 %}Drzwi do szopy otwarte o {{time}}.
+{% endif %}
