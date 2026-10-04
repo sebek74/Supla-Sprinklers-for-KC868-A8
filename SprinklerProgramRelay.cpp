@@ -7,6 +7,7 @@
 #include <supla/control/button.h>
 #include <supla/sensor/binary.h>
 #include <supla/control/action_trigger.h>
+#include "Definitions.h"
 #include "SprinklerProgramRelay.h"
 #include "SprinklerRelay.h"
 #include "SprinklerDisplay.h"
@@ -14,99 +15,61 @@
 
 extern SprinklerMessenger messenger;
 extern SprinklerDisplay display;
-bool overridetime = true;
-void SprinklerProgramRelay::updateRemainingTime(_supla_int_t addDuration) {
-  //mojCzasDzialaniaMs += addDuration;
-  //this->durationMs = mojCzasDzialaniaMs - momentWlaczeniaMs;
-  //this->getChannel()->setNewValue(this->isOn(), mojCzasDzialaniaMs-momentWlaczeniaMs);
-  overridetime = false;
-  turnOff();
-  turnOn(mojCzasDzialaniaMs-(millis()-momentWlaczeniaMs)+addDuration);  // Resetujemy punkt odniesienia do teraz
-  overridetime = true;
-  SUPLA_LOG_DEBUG("handle SprinklerProgramRelay updateRemainingTime!!! %d/%d\n", addDuration, this->durationMs);
+
+void SprinklerProgramRelay::startCycleNow(bool scheduled) { 
+  startTimeMs = millis();
+  SUPLA_LOG_DEBUG("handle SprinklerProgramRelay startCycleNow");
+  calculatedTimeMs = SprinklerRelay::calculateProgramTimeMs();
+  messenger.sendMessage(MSG_PROGRAM_ON, calculatedTimeMs/MS_IN_MIN);
+  turnOn(); 
+  runScheduled = scheduled; 
 }
 
-void SprinklerProgramRelay::turnOn(_supla_int_t duration) {
-  if (overridetime && SprinklerRelay::calculateProgramTimeMs()==0) {  // żaden z kroków programy nie został ustawiony 
-      overridetime = false;
-      turnOff();
-      overridetime = true;
-      return;
+void SprinklerProgramRelay::updateRemainingTime(_supla_int_t addDurationMs) {
+  calculatedTimeMs+=addDurationMs;
+  SUPLA_LOG_DEBUG("handle SprinklerProgramRelay updateRemainingTime %d/%d", addDurationMs, this->durationMs);
+  turnOn(startTimeMs-millis()+calculatedTimeMs);  // Resetujemy punkt odniesienia do teraz
+}
+
+void SprinklerProgramRelay::recalculateRemainingTime() {
+  if (!getProgramInProgress()) return;
+  _supla_int_t newDurationMs = SprinklerRelay::calculateProgramTimeMs();
+  SUPLA_LOG_DEBUG("handle SprinklerProgramRelay recalculateRemainingTime %d", newDurationMs);
+  if (newDurationMs>0) {
+    startTimeMs = millis();
+    calculatedTimeMs = newDurationMs;
+    turnOn(newDurationMs);
   }
-  SUPLA_LOG_DEBUG("handle SprinklerProgramRelay turnOn step 1!!! %d, %d\n", overridetime?1:0, duration);
-  if(overridetime) {
-    mojCzasDzialaniaMs = SprinklerRelay::calculateProgramTimeMs();
-    messenger.sendMessage(Msg::PROGRAM_ON, mojCzasDzialaniaMs/MS_IN_MIN);
-    display.exitEditMode();
-  }
-  else {
-    mojCzasDzialaniaMs = duration;
-  }
-  duration = mojCzasDzialaniaMs;       
-  momentWlaczeniaMs = millis();
-  czyOdlicza = true;
-  VirtualRelay::turnOn(mojCzasDzialaniaMs);
-  SUPLA_LOG_DEBUG("handle SprinklerProgramRelay turnOn step 2!!! %d/%d\n", duration, this->durationMs);
-  this->durationMs = mojCzasDzialaniaMs;
-  programInProgress = true;
+  else
+    turnOff(0);
+}
+
+void SprinklerProgramRelay::turnOn(_supla_int_t newDurationMs) {
+  display.exitEditMode();
+  if (inProgress && newDurationMs==0)
+    return; // zapobiegnij skasowaniu odliczania
+  if (!inProgress) {  // przełączenie bezpośrednio w aplikacji lub chmurze
+      newDurationMs = SprinklerRelay::calculateProgramTimeMs();
+      if (newDurationMs==0) {   // żaden z kroków programu nie został ustawiony
+        turnOff();
+        startTimeMs = 0;
+        return;
+      }
+      calculatedTimeMs = newDurationMs;
+      messenger.sendMessage(MSG_PROGRAM_ON, newDurationMs/MS_IN_MIN);
+      startTimeMs = millis();
+  } 
+  //else  
+    //messenger.sendMessage(MSG_PROGRAM_ON, newDurationMs/MS_IN_MIN);
+  SUPLA_LOG_DEBUG("handle SprinklerProgramRelay turnOn(%d)", newDurationMs);
+  VirtualRelay::turnOn(newDurationMs);
+  VirtualRelay::durationMs = newDurationMs;
+  inProgress = true;
 } 
 
 void SprinklerProgramRelay::turnOff(_supla_int_t duration) {
-    czyOdlicza = false;
     VirtualRelay::turnOff(duration);
-    SUPLA_LOG_DEBUG("handle SprinklerProgramRelay turnOff!!! %d, %d\n", overridetime?1:0, duration);
-    if (overridetime) SprinklerRelay::completeProgram();
+    SUPLA_LOG_DEBUG("handle SprinklerProgramRelay turnOff");
+    SprinklerRelay::completeProgram(runScheduled);
+    inProgress = false;
 }
-
-// 4. KLUCZ: Nadpisujemy pętlę logiczną, aby kontrolować stan odliczania
-void SprinklerProgramRelay::iterateAlways() {
-    Supla::Control::Relay::iterateAlways();
-
-    // Jeśli czas minął, upewniamy się, że flaga odliczania zgasła
-    if (czyOdlicza && (millis() - momentWlaczeniaMs >= mojCzasDzialaniaMs)) {
-        czyOdlicza = false;
-        programInProgress = false;
-        if (!SprinklerRelay::isPumpRequired())
-          SprinklerRelay::getRelayById(RelayId::Pump)->turnOff();
-        SprinklerRelay::disableScheduleCycle(DISABLE_MESSAGE);
-    }
-}
-
-// 5. TAJNA METODA: To z niej aplikacja pobiera informację o zegarku na ekranie!
-// Nadpisujemy ją, zwracając nasz własny wyliczony czas w sekundach
-int32_t SprinklerProgramRelay::handleNewValueFromServer(TSD_SuplaChannelNewValue *newValue) {
-    // Wywołujemy oryginalną metodę, aby SUPLA obsłużyła stan pinu
-    int32_t result = VirtualRelay::handleNewValueFromServer(newValue);
-   
-    // Jeśli przekaźnik się właśnie włączył z aplikacji, resetujemy nasz licznik
-    if (this->isOn()) {
-        if (!czyOdlicza) {
-            momentWlaczeniaMs = millis();
-            czyOdlicza = true;
-        }
-    }
-    uint32_t  val = getCountdownTimerRemainingTimeSec();
-    if (val>0)  newValue->DurationMS = val;
-    SUPLA_LOG_DEBUG("handle SprinklerProgramRelay::handleNewValueFromServer!!! %d\n", val);
-    return result;
-}
-
-// Jeśli Twoja wersja biblioteki posiada metodę zwracającą pozostały czas do aplikacji,
-// to to mapowanie upewni się, że aplikacja dostanie właściwą liczbę sekund:
-uint32_t SprinklerProgramRelay::getCountdownTimerRemainingTimeSec() {
-    if (!czyOdlicza || !this->isOn()) {
-        return 0;
-    }
-    unsigned long minelo = millis() - momentWlaczeniaMs;
-    if (minelo >= mojCzasDzialaniaMs) {
-        return 0;
-    }
-    SUPLA_LOG_DEBUG("programRelay momentWlaczeniaMs=%d, mojCzasDzialaniaMs=%d, minelo=%d\n", momentWlaczeniaMs, mojCzasDzialaniaMs, minelo);
-    return 1+(mojCzasDzialaniaMs - minelo) / 1000;
-}
-
-  void SprinklerProgramRelay::startCycleNow(bool scheduled) { 
-      turnOn(); 
-      runScheduled = scheduled; 
-      programInProgress = true;
-  }

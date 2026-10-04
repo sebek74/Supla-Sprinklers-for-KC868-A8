@@ -18,7 +18,7 @@
 #define I2C_SDA 4
 #define I2C_SCL 5
 
-// krzycisk sprzetowy wejscia w konfiguracje
+// przycisk sprzetowy wejscia w konfiguracje
 #define BUTTON_CFG_RELAY_GPIO 0
 
 // wybierz ekran
@@ -38,10 +38,7 @@
 #define SENSOR_PAGE_TIME 5000
 #define DISPLAY_INTERVAL 250
 
-// czas wyłączenia pompy przed zamknięciem zaworu
-#define PUMP_ADVANCE_OFF_TIME_MS 3000   
-
-#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
   #define MS_IN_MIN 1000

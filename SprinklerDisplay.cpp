@@ -17,6 +17,8 @@
 #include "ArialMT7pt7b.h"
 #include "ArialMT5pt7b.h" 
 /*
+  mały font 5ka:
+
  & running man
  ' trybik
  ( termometr
@@ -80,7 +82,6 @@ void SprinklerDisplay::updateView() {
     return;
   } 
   if (screenOff) return;
-  clearDisplay();
   dimContrast();
   clearDisplay();
   setTextColor(WHITE_COLOR); // Draw white text
@@ -94,7 +95,7 @@ void SprinklerDisplay::updateView() {
       if (i==this->editMode) fillRect(17*(i-1), 0, 14, 14, WHITE_COLOR);  //negatyw
       drawBitmap(17*(i-1)+1, 1, relay_bits[i-1], 12, 12, (i!=this->editMode)?WHITE_COLOR:BLACK_COLOR);
     }
-    uint32_t scheduledTime = SprinklerRelay::getScheduledProgramTime((RelayId)i);
+    uint32_t scheduledTime = SprinklerRelay::getScheduledProgramTimeS((RelayId)i);
     if (scheduledTime==0) continue;
     char number[4];
     snprintf(number, sizeof(number), "%d", scheduledTime);
@@ -152,10 +153,10 @@ bool SprinklerDisplay::drawProgramTimers() {
   bool result = false;
   setTextColor(WHITE_COLOR); // Draw white text
   RelayId activeValveId = SprinklerRelay::getActiveValveId();
-  uint32_t relayTime = 0;
+  uint32_t relayTime = 0, programTime = 0;
   if (activeValveId>0) 
     SprinklerRelay::getValveById(activeValveId)->getRemainingCountdownTimerSec(&relayTime);
-  uint32_t programTime = SprinklerRelay::getProgramRelay()->getCountdownTimerRemainingTimeSec();
+  SprinklerRelay::getProgramRelay()->getRemainingCountdownTimerSec(&programTime);
 
   setCursor(25, 43);
   if (relayTime>0) {
@@ -341,10 +342,10 @@ void SprinklerDisplay::drawNetworkIcon() {
 void SprinklerDisplay::drawTank() {
   drawBitmap(103, 35, tank_bits[0], 25, 29, WHITE_COLOR); // tank
    switch (SprinklerRelay::getTankStatus()) {
-    case ActionId::TankRefill:
+    case ActionId::TankRefilling:
       if (frameId%2) drawBitmap(103, 35, tank_bits[2], 25, 29, WHITE_COLOR);
       break;
-    case ActionId::TankEmpty:
+    case ActionId::TankEmptying:
       if (frameId%2) drawBitmap(103, 35, tank_bits[1], 25, 29, WHITE_COLOR);
       break;  
     case ActionId::TankDoNothing:
@@ -369,7 +370,7 @@ void SprinklerDisplay::displayConfig() {
   String sh(config.getSSID());
   if (config.getIntfType()==Supla::Network::IntfType::Ethernet) {
     info[0] = "Tryb konfiguracyjny";
-    info[1] = "Po^[cz się]z sieci[";
+    info[1] = "Po^[cz się] z sieci[";
     info[2] = "lokaln[ i wybierz adres";
     info[3] = config.getIp().toString().c_str();
     if (strlen(info[3])==0)
