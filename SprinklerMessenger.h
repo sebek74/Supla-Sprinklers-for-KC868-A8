@@ -1,3 +1,6 @@
+#ifndef SPRINKLERMESSENGER_H
+#define SPRINKLERMESSENGER_H
+
 #include <stdint.h>
 #include <SuplaDevice.h>
 
@@ -28,3 +31,5 @@ public:
   void sendMessage(const char* code, uint32_t param1=0,  uint32_t param2=0);
   void sendMessage(int16_t context, const char* code, uint32_t param1=0,  uint32_t param2=0);
 };
+
+#endif // SPRINKLERMESSENGER_H

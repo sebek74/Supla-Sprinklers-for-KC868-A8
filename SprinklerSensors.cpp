@@ -2,6 +2,7 @@
 #include <supla/control/relay.h>
 #include <supla/sensor/binary.h>
 #include <supla/storage/storage.h>
+#include "Definitions.h"
 #include "SprinklerSensors.h"
 #include "SprinklerConfig.h"
 #include "SprinklerRelay.h"
@@ -11,7 +12,7 @@ DallasTemperature dallas;
 Supla::Sensor::DS18B20* dbSensors[16];
 
 void SprinklerSensors::Initialize() {
-  dbSensors[0] = new Supla::Sensor::DS18B20(DALLAS_GPIO);  // get 1st sensor, initialize pin
+  dbSensors[0] = new Supla::Sensor::DS18B20(ONE_WIRE_GPIO);  // get 1st sensor, initialize pin
   dallas = dbSensors[0]->getHwSensors();
   DeviceAddress address;
   dallas.setWaitForConversion(true);
@@ -20,7 +21,7 @@ void SprinklerSensors::Initialize() {
   for (int i = 0; i < dallas.getDeviceCount(); i++) {
     dallas.getAddress(address, i);
     if (i>0)
-      dbSensors[i] = new Supla::Sensor::DS18B20(DALLAS_GPIO, address);
+      dbSensors[i] = new Supla::Sensor::DS18B20(ONE_WIRE_GPIO, address);
     dbSensors[i]->setInitialCaption(config.getSensorName(i));
     dbSensors[i]->getChannel()->setChannelNumber(RelayId::_LastRelay*3+i);
     SUPLA_LOG_DEBUG("Sensor %d - address {0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X}", i, \

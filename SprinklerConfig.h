@@ -1,3 +1,5 @@
+#ifndef SPRINKLERCONFIG_H
+#define SPRINKLERCONFIG_H
 
 #include <supla/network/esp_wifi.h>
 #include <WiFi.h>
@@ -128,3 +130,5 @@ class SprinklerConfig  : public Supla::LittleFsConfig {
     void applyCert();
     void setupDownloadConfig();
 };
+
+#endif //SPRINKLERCONFIG_H

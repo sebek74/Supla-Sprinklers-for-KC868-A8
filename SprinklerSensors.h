@@ -6,8 +6,6 @@
 #include "supla/sensor/thermometer.h"
 #include <string>
 
-#define DALLAS_GPIO 14
-
 class SprinklerSensors {
 
   public:

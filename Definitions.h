@@ -8,7 +8,7 @@
 
 // Definiowanie pinów dla chipu LAN8720 (KC868-A8)
 #define ETH_ADDR        0
-#define ETH_POWER_PIN  13
+#define ETH_POWER_PIN  13 // io nr 2
 #define ETH_MDC_PIN    23
 #define ETH_MDIO_PIN   18
 #define ETH_TYPE       ETH_PHY_LAN8720
@@ -17,6 +17,13 @@
 // Definicje I2C dla PCF8574
 #define I2C_SDA 4
 #define I2C_SCL 5
+
+#define PCF_RELAYS_ADDR 0x20  // Ekspander wyjściowy (Przekaźniki)
+#define PCF_INPUTS_ADDR 0x22  // Ekspander wejściowy (Wejścia cyfrowe)
+
+#define ONE_WIRE_GPIO 14  // io nr 1
+#define SHED_LIGHT_GPIO 32  // io nr 3
+#define EXTRA_POWER_SWITCH_GPIO 33 // io nr 4
 
 // przycisk sprzetowy wejscia w konfiguracje
 #define BUTTON_CFG_RELAY_GPIO 0

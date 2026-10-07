@@ -416,6 +416,20 @@ void SprinklerDisplay::drawSuplaLogo() {
   }
 }
 
+const char* editModeNames [] = {
+  "Prze^[cz pomp]", 
+  "Zraszacze front - czas", 
+  "Zraszacze ogr`d - czas",
+  "Zraszacze przy gara|u - czas",
+  "Kwiaty - czas",
+  "Warzywniak - czas",
+  "Dolewanie do studni",
+  "Opr`|nianie studni",
+  "Uruchom cykl teraz",
+  "Zaplanuj cykl",
+  "Czas startu cyklu"
+};
+
 bool SprinklerDisplay::drawEditMode() {
   int16_t x1, y1;
   uint16_t w, h;
@@ -440,7 +454,7 @@ bool SprinklerDisplay::drawEditMode() {
       default:
          info[0]='\'';
     }
-    strcpy(info+1, (editMode==_EditScheduleTime)? "Czas startu cyklu" : P(relayNames[editMode]).c_str());
+    strcpy(info+1, editModeNames[editMode]);
     getTextBounds(info, 0, 30, &x1, &y1, &w, &h);
     setCursor((SCREEN_WIDTH - w) / 2, MIDDLE_ROW);
     print(info);

@@ -1,5 +1,5 @@
-#ifndef OLED_H
-#define OLED_H
+#ifndef SPRINKLERDISPLAY_H
+#define SPRINKLERDISPLAY_H
 
 #include <Adafruit_GFX.h>
 #include <Wire.h>
@@ -57,7 +57,7 @@ class SprinklerDisplay : public Adafruit_SSD1306 {
     void dimContrast();
     bool drawEditMode();
     void nextEditMode() { 
-      editMode=(editMode==RelayId::ScheduleCycle)? -1 :  editMode+1;
+      editMode=(editMode==RelayId::_LastEditMode)? -1 :  editMode+1;
       enterEditMode = millis();
     }
     void exitEditMode() { editMode=-1; }
@@ -79,4 +79,4 @@ class SprinklerDisplay : public Adafruit_SSD1306 {
     } 
 };
 
-#endif //OLED_H
+#endif //SPRINKLERDISPLAY_H

@@ -1,12 +1,13 @@
-#ifndef SPLINKERRELAY_H
-#define SPLINKERRELAY_H
-
-#define PCF_RELAYS_ADDR 0x20  // Ekspander wyjściowy (Przekaźniki)
-#define PCF_INPUTS_ADDR 0x22  // Ekspander wejściowy (Wejścia cyfrowe)
-#define MAX_CHANNELS 8
+#ifndef SPRINKLERRELAY_H
+#define SPRINKLERRELAY_H
 
 #include <PCF8574.h>
 #include <supla/io/PCF8574.h>
+#include <supla/sensor/container.h>
+#include <supla/sensor/binary.h>
+#include <supla/control/relay.h>
+#include "Definitions.h"
+
 
 
 enum RelayId {
@@ -24,27 +25,28 @@ enum RelayId {
   RefillTank = 6,
   EmptyTank = 7,
     _LastPsychicalRelay = 7,
-  VirtualTankLevel = 8,
-    _EditScheduleTime = 8,
-  RunCycleNow = 9,
-    _FirstProgram = 10,
-  ScheduleCycle = 10,
-  FrontTimeShort = 11,
-  FrontTimeLong = 12,
-  BackTimeShort = 13,
-  BackTimeLong = 14,
-  SideTimeShort = 15,
-  SideTimeLong = 16,
-  FlowersTimeShort = 17,
-  FlowersTimeLong = 18, 
-  VegetablesTimeShort = 19,
-  VegetablesTimeLong = 20,
-   _LastProgram = 20,
-  StopAll = 21,
-  FixedLight = 22,
-  TimedLight = 23,
-  Extra = 24,
-    _LastRelay = 24
+  RunCycleNow = 8,
+    _WaterContainerSensor = 8,
+  ScheduleCycle = 9,
+    _FirstProgram = 9,
+  FrontTimeShort = 10,
+    _EditScheduleTime = 10,
+    _LastEditMode = 10,
+  FrontTimeLong = 11,
+  BackTimeShort = 12,
+  BackTimeLong = 13,
+  SideTimeShort = 14,
+  SideTimeLong = 15,
+  FlowersTimeShort = 16,
+  FlowersTimeLong = 17, 
+  VegetablesTimeShort = 18,
+  VegetablesTimeLong = 19,
+   _LastProgram = 19,
+  StopAll = 20,
+  FixedLight = 21,
+  TimedLight = 22,
+  Extra = 23,
+    _LastRelay = 23
 };
 
 
@@ -81,8 +83,7 @@ enum ActionId {
   FixedLightOff
 };
 
-#define DISABLE_MESSAGE false
-#define ENABLE_MESSAGE true
+#define REQUIRES_PUMP true
 
 class SprinklerProgramRelay;
 class SprinklerActionHandler;
@@ -97,17 +98,16 @@ private:
   inline static bool relaysInitialized = false;
 
 protected:
-  inline static Supla::Io::PCF8574 *inPcf = new Supla::Io::PCF8574(0x22);
-  inline static Supla::Io::PCF8574 *outPcf = new Supla::Io::PCF8574(0x20);
+  inline static Supla::Io::PCF8574 *inPcf = new Supla::Io::PCF8574(PCF_INPUTS_ADDR);
+  inline static Supla::Io::PCF8574 *outPcf = new Supla::Io::PCF8574(PCF_RELAYS_ADDR);
   inline static Supla::Control::Relay *relay[RelayId::_LastRelay+1] = {};
-  //inline static Supla::Control::Button *button[RelayId::_LastRelay+1] = {};
-  //inline static Supla::Control::ActionTrigger *at[RelayId::_LastRelat+1] = {};
+  inline static Supla::Sensor::Container* waterContainerSensor = nullptr;
   inline static Supla::Sensor::Binary* lowWaterSensor = nullptr;
   inline static Supla::Sensor::Binary* highWaterSensor= nullptr;
   inline static Supla::Sensor::Binary* doorSensor= nullptr;    
   inline static SprinklerProgramRelay* programRelay =nullptr;
-  static int32_t fixedLightStartMs;
-  static int32_t pumpStartMs;
+  inline static int32_t fixedLightStartMs = 0;
+  inline static int32_t pumpStartMs = 0;
 
 public:
   static void registerRelays(); 
@@ -116,19 +116,20 @@ public:
   static void ticTacTimer();
   static _supla_int_t calculateProgramTimeMs();
 
-  explicit SprinklerRelay(int pin, bool pumpRequired) : Supla::Control::Relay(outPcf, pin, false) {
+  explicit SprinklerRelay(int pin, int relayId, bool pumpRequired) : Supla::Control::Relay(outPcf, pin, false) {
       getChannel()->setDefaultFunction(SUPLA_CHANNELFNC_STAIRCASETIMER);
       getChannel()->setDefaultIcon(1);
       requiresPump = pumpRequired;
-      myRelayId = pin;
+      myRelayId = relayId;
   };
   static Supla::Control::Relay* getRelayById(int relayId) {return relay[relayId]; };
   static SprinklerRelay* getValveById(int relayId) { 
     if (relayId>=RelayId::_FirstValve && relayId<=RelayId::_LastValve) 
-      return (SprinklerRelay*)relay[relayId];
+      return static_cast<SprinklerRelay*>(relay[relayId]);
     else
       return nullptr;
   }
+  static Supla::Sensor::Container* getWaterContainerSensor() { return waterContainerSensor; };
   static SprinklerProgramRelay* getProgramRelay() { return programRelay; };
   static void turnOffAll();
   static void completeProgram(bool runScheduled);
@@ -163,4 +164,4 @@ public:
   void turnOff(_supla_int_t duration = 0) override;
 };
 
-#endif //SPLINKERRELAY_H
+#endif //SPRINKLERRELAY_H
