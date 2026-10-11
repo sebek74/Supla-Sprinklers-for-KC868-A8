@@ -2,26 +2,29 @@
 My own implementation of ESP32 firmware for Kincony KC868-A8 using SuplaDevice for my personal requirements.
 
 Basic description:
-* controls:
+* device controls:
   * pump
   * 7 valves
   * light relay (with switch)
-  * extra trigger for another light controled by different device
-  * temperature sensors
+  * extra button with action trigger for another light controled by another Supla device
+  * temperature sensors (including RTC temperature sensor)
   * door sensor
   * 2 water level sensors
+  * RTC module
+  * SSH1106 OLED display
 * ESP32, Supla Device, Adafruit, SSD1306/SH1106 libraries used
-* works offline (registration & datetime synchronization with Supla cloud at start is needed)
+* works offline as well (RTC used)
 * support for Wifi & LAN
 * Supla configuration mode & OTA
+* telnet log feature
 
 Technical information:
-* pump & 7 valve relays controled via pcf8574
-* uses another digital inputs (DI) for:
+* pump & 7 valve relays controled via pcf8574 onboard expander
+* used another digital inputs (DI) for:
   * DS1820 1-wire sensors connected to input (nr 1)
-  * LAN8720 reset pin controled (nr 2) - pin needs to by connected to specified place on board (see images)
+  * LAN8720 reset pin (nr 2) - pin needs to by connected to specified place on board (see images folder)
   * light & extra external relays (nr 3 & 4)
-* support for OLED display (DS1106 recomended, SSD1306), all actions, settings & sensor indicators
+* support for OLED display (DS1106 recomended, SSD1306), custom view for indicators & actions
 * set short/long/both program for each valve separately (controled via app & device edit mode)
 * schedule hour and autostart (controled via app & device edit mode)
 * empty & refill tank actions working with sensors (+controled via app)
