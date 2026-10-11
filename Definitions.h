@@ -5,6 +5,7 @@
 
 #define MY_DEVICE_NAME     "KC868-A8 Sterownik nawodnienia"
 #define MY_WIFI_NAME "SUPLA-KC868-A8"
+#define MAX_SENSOR_AMOUNT 16
 
 // Definiowanie pinów dla chipu LAN8720 (KC868-A8)
 #define ETH_ADDR        0

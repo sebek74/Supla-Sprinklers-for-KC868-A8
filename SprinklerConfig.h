@@ -47,8 +47,6 @@ class SprinklerConfig  : public Supla::LittleFsConfig {
       doorMessageHourEnd = 6;
       telnetDebug = 0;
       network = nullptr;
-      //wifiNetwork = std::nullptr_t;
-      //ethNetwork = std::nullptr_t;
       char defaultName[17];
       for (int i=0; i<8; i++) {
         snprintf(defaultName, sizeof(defaultName), "Temperatura %d", i+1);

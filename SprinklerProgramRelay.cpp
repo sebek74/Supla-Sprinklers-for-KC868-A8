@@ -19,7 +19,7 @@ extern SprinklerDisplay display;
 void SprinklerProgramRelay::startCycleNow(bool scheduled) { 
   startTimeMs = millis();
   SUPLA_LOG_DEBUG("handle SprinklerProgramRelay startCycleNow");
-  calculatedTimeMs = SprinklerRelay::calculateProgramTimeMs();
+  calculatedTimeMs = SprinklerRelay::CalculateProgramTimeMs();
   messenger.sendMessage(MSG_PROGRAM_ON, calculatedTimeMs/MS_IN_MIN);
   turnOn(); 
   runScheduled = scheduled; 
@@ -33,7 +33,7 @@ void SprinklerProgramRelay::updateRemainingTime(_supla_int_t addDurationMs) {
 
 void SprinklerProgramRelay::recalculateRemainingTime() {
   if (!getProgramInProgress()) return;
-  _supla_int_t newDurationMs = SprinklerRelay::calculateProgramTimeMs();
+  _supla_int_t newDurationMs = SprinklerRelay::CalculateProgramTimeMs();
   SUPLA_LOG_DEBUG("handle SprinklerProgramRelay recalculateRemainingTime %d", newDurationMs);
   if (newDurationMs>0) {
     startTimeMs = millis();
@@ -49,7 +49,7 @@ void SprinklerProgramRelay::turnOn(_supla_int_t newDurationMs) {
   if (inProgress && newDurationMs==0)
     return; // zapobiegnij skasowaniu odliczania
   if (!inProgress) {  // przełączenie bezpośrednio w aplikacji lub chmurze
-      newDurationMs = SprinklerRelay::calculateProgramTimeMs();
+      newDurationMs = SprinklerRelay::CalculateProgramTimeMs();
       if (newDurationMs==0) {   // żaden z kroków programu nie został ustawiony
         turnOff();
         startTimeMs = 0;
@@ -70,6 +70,6 @@ void SprinklerProgramRelay::turnOn(_supla_int_t newDurationMs) {
 void SprinklerProgramRelay::turnOff(_supla_int_t duration) {
     VirtualRelay::turnOff(duration);
     SUPLA_LOG_DEBUG("handle SprinklerProgramRelay turnOff");
-    SprinklerRelay::completeProgram(runScheduled);
+    SprinklerRelay::CompleteProgram(runScheduled);
     inProgress = false;
 }

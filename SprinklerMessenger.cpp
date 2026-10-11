@@ -10,13 +10,16 @@
 
 void SprinklerMessenger::initialize() {
   Supla::Notification::RegisterNotification(-1); 
+  initialized = true;
 }
 
 void SprinklerMessenger::sendMessage(const char* code, uint32_t param1,  uint32_t param2) {
+  if (!initialized) return;
   sendMessage(-1, code, param1, param2);
 }
 
 void SprinklerMessenger::sendMessage(int16_t context, const char* code, uint32_t param1,  uint32_t param2) {
+  if (!initialized) return;
   char text[64];
   snprintf(text, sizeof(text), code, param1, param2);
   Supla::Notification::Send(context, MSG_TITLE, text);

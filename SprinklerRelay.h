@@ -6,15 +6,19 @@
 #include <supla/sensor/container.h>
 #include <supla/sensor/binary.h>
 #include <supla/control/relay.h>
+#include <supla/control/button.h>
 #include "Definitions.h"
 
 
 
 enum RelayId {
   Pump = 0,
-    _FirstValve = 1,
+    _CoverButton1 = 0,
   FrontSprinklers = 1,
+    _FirstValve = 1,
+    _CoverButton2 = 1,
   BackSprinklers = 2,
+    _CoverButton3= 2,
   SideSprinklers = 3,
     _DoorSensor = 3,
   Flowers = 4,
@@ -59,7 +63,8 @@ enum ActionId {
   EmptyRelayOff,
   RefillRelayOn,
   RefillRelayOff,
-  ActionTogglePump, 
+  TogglePump,
+  ActionTogglePumpEvent, 
   ActionStopAll,
   ActionRunCycle,
   ActionToggleScheduleCycle,
@@ -105,16 +110,17 @@ protected:
   inline static Supla::Sensor::Binary* lowWaterSensor = nullptr;
   inline static Supla::Sensor::Binary* highWaterSensor= nullptr;
   inline static Supla::Sensor::Binary* doorSensor= nullptr;    
+  //inline static Supla::Control::Button* coverButton[3];
   inline static SprinklerProgramRelay* programRelay =nullptr;
   inline static int32_t fixedLightStartMs = 0;
   inline static int32_t pumpStartMs = 0;
 
 public:
-  static void registerRelays(); 
-  static void initalizeRelays();
-  static void initializeConfigButton();
-  static void ticTacTimer();
-  static _supla_int_t calculateProgramTimeMs();
+  static void RegisterRelays(); 
+  static void InitalizeRelays();
+  static void InitializeConfigButton();
+  static void TicTacTimer();
+  static _supla_int_t CalculateProgramTimeMs();
 
   explicit SprinklerRelay(int pin, int relayId, bool pumpRequired) : Supla::Control::Relay(outPcf, pin, false) {
       getChannel()->setDefaultFunction(SUPLA_CHANNELFNC_STAIRCASETIMER);
@@ -122,42 +128,42 @@ public:
       requiresPump = pumpRequired;
       myRelayId = relayId;
   };
-  static Supla::Control::Relay* getRelayById(int relayId) {return relay[relayId]; };
-  static SprinklerRelay* getValveById(int relayId) { 
+  static Supla::Control::Relay* GetRelayById(int relayId) {return relay[relayId]; };
+  static SprinklerRelay* GetValveById(int relayId) { 
     if (relayId>=RelayId::_FirstValve && relayId<=RelayId::_LastValve) 
       return static_cast<SprinklerRelay*>(relay[relayId]);
     else
       return nullptr;
   }
-  static Supla::Sensor::Container* getWaterContainerSensor() { return waterContainerSensor; };
-  static SprinklerProgramRelay* getProgramRelay() { return programRelay; };
-  static void turnOffAll();
-  static void completeProgram(bool runScheduled);
+  static Supla::Sensor::Container* GetWaterContainerSensor() { return waterContainerSensor; };
+  static SprinklerProgramRelay* GetProgramRelay() { return programRelay; };
+  static void TurnOffAll();
+  static void CompleteProgram(bool runScheduled);
   //static void updatePumpRelay();
-  static RelayId getActiveValveId();
+  static RelayId GetActiveValveId();
   //static uint32_t getActiveValveRemainingTimeSec();
-  static bool isPumpRequired() {
+  static bool IsPumpRequired() {
     for (int id=RelayId::_FirstValve; id<=RelayId::_LastValve; id++) {
-      SprinklerRelay* valve = getValveById(id);
+      SprinklerRelay* valve = GetValveById(id);
       if (valve->getRequiresPump() && valve->isOn()) return true;
     }
     return relay[RelayId::EmptyTank]->isOn();
   }
-  static Supla::Control::Relay* getPumpRelay() { return relay[RelayId::Pump]; }
-  static bool isPumpOn() { return relay[RelayId::Pump]->isOn(); }
-  static bool isScheduleCycleEnabled() { return relay[RelayId::ScheduleCycle]->isOn(); }
+  static Supla::Control::Relay* GetPumpRelay() { return relay[RelayId::Pump]; }
+  static bool IsPumpOn() { return relay[RelayId::Pump]->isOn(); }
+  static bool IsScheduleCycleEnabled() { return relay[RelayId::ScheduleCycle]->isOn(); }
   static bool enableNextMessage;
-  static void disableScheduleCycle(bool enableMessage) { 
+  static void DisableScheduleCycle(bool enableMessage) { 
     enableNextMessage = enableMessage;
     relay[RelayId::ScheduleCycle]->turnOff(); 
   }
 
-  static ActionId getTankStatus();
-  static void nextEditValue();
-  static bool isDoorOpen() { return !doorSensor->getValue(); }
-  static bool isLightOn() { return relay[RelayId::FixedLight]->isOn(); }
-  static uint32_t getScheduledProgramTimeS(int relayId);
-  static void getRelayTimeText(int32_t relayId, char* result, int32_t len);
+  static ActionId GetTankStatus();
+  static void NextEditValue();
+  static bool IsDoorOpen() { return !doorSensor->getValue(); }
+  static bool IsLightOn() { return relay[RelayId::FixedLight]->isOn(); }
+  static uint32_t GetScheduledProgramTimeS(int relayId);
+  static void GetRelayTimeText(int32_t relayId, char* result, int32_t len);
 
   bool getRequiresPump() { return requiresPump; }
   void turnOn(_supla_int_t duration = 0) override;

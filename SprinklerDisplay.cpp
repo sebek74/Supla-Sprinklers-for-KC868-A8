@@ -91,11 +91,11 @@ void SprinklerDisplay::updateView() {
   setTextColor(WHITE_COLOR);
 
   for (int i=RelayId::_FirstValve; i<=RelayId::_LastValve; i++) { 
-    if (frameId%3<2 || !SprinklerRelay::getRelayById(i)->isOn()) {
+    if (frameId%3<2 || !SprinklerRelay::GetRelayById(i)->isOn()) {
       if (i==this->editMode) fillRect(17*(i-1), 0, 14, 14, WHITE_COLOR);  //negatyw
       drawBitmap(17*(i-1)+1, 1, relay_bits[i-1], 12, 12, (i!=this->editMode)?WHITE_COLOR:BLACK_COLOR);
     }
-    uint32_t scheduledTime = SprinklerRelay::getScheduledProgramTimeS((RelayId)i);
+    uint32_t scheduledTime = SprinklerRelay::GetScheduledProgramTimeS((RelayId)i);
     if (scheduledTime==0) continue;
     char number[4];
     snprintf(number, sizeof(number), "%d", scheduledTime);
@@ -111,7 +111,7 @@ void SprinklerDisplay::updateView() {
 
   if (!drawEditMode()) {
     // pompa
-    if (SprinklerRelay::getRelayById(RelayId::Pump)->isOn()) {
+    if (SprinklerRelay::GetRelayById(RelayId::Pump)->isOn()) {
       if (frameId%3<2) drawBitmap(111, 39, pump_bits[pumpPhases[frameId%4]], 9, 21, WHITE_COLOR);
     }
     else 
@@ -125,8 +125,8 @@ void SprinklerDisplay::updateView() {
 
 void SprinklerDisplay::drawSchedulerIcon() {
   // dzwonek schedulera
-  if (SprinklerRelay::getRelayById(RelayId::ScheduleCycle)->isOn()) {
-    if (SprinklerRelay::getProgramRelay()->getProgramInProgress() && SprinklerRelay::getProgramRelay()->isRunScheduled())
+  if (SprinklerRelay::GetRelayById(RelayId::ScheduleCycle)->isOn()) {
+    if (SprinklerRelay::GetProgramRelay()->getProgramInProgress() && SprinklerRelay::GetProgramRelay()->isRunScheduled())
       switch ((frameId/2)%3) {
         case 0: drawBitmap(84, 0, bell1Bitmap24x16, 24, 16, WHITE_COLOR); break;
         case 1: drawBitmap(84, 0, bell2Bitmap24x16, 24, 16, WHITE_COLOR); break;
@@ -152,11 +152,11 @@ void SprinklerDisplay::drawSchedulerIcon() {
 bool SprinklerDisplay::drawProgramTimers() {
   bool result = false;
   setTextColor(WHITE_COLOR); // Draw white text
-  RelayId activeValveId = SprinklerRelay::getActiveValveId();
+  RelayId activeValveId = SprinklerRelay::GetActiveValveId();
   uint32_t relayTime = 0, programTime = 0;
   if (activeValveId>0) 
-    SprinklerRelay::getValveById(activeValveId)->getRemainingCountdownTimerSec(&relayTime);
-  SprinklerRelay::getProgramRelay()->getRemainingCountdownTimerSec(&programTime);
+    SprinklerRelay::GetValveById(activeValveId)->getRemainingCountdownTimerSec(&relayTime);
+  SprinklerRelay::GetProgramRelay()->getRemainingCountdownTimerSec(&programTime);
 
   setCursor(25, 43);
   if (relayTime>0) {
@@ -172,12 +172,12 @@ bool SprinklerDisplay::drawProgramTimers() {
       printf(":%02d", relayTime%60);
     }
     result = true;
-    RelayId valveId = SprinklerRelay::getActiveValveId();
+    RelayId valveId = SprinklerRelay::GetActiveValveId();
     if (valveId>0) 
       drawBitmap(6, 31, relay_bits[valveId-1], 12, 12, WHITE_COLOR); 
   } 
   
-  if (SprinklerRelay::getProgramRelay()->getProgramInProgress()) {
+  if (SprinklerRelay::GetProgramRelay()->getProgramInProgress()) {
     setCursor(25, 63);
     if (programTime/3600>0) {
       setFont(&ArialMT10pt7b);
@@ -199,9 +199,9 @@ bool SprinklerDisplay::drawProgramTimers() {
 void SprinklerDisplay::drawSensor() {
   time_t now = time(nullptr);
   struct tm* timeinfo = localtime(&now);
-  int32_t pagesAmount = sensors.getSensorsAmount();
+  int32_t pagesAmount = sensors.getSensorAmount();
   if (timeinfo->tm_year>120) pagesAmount++;
-  if (SprinklerRelay::isScheduleCycleEnabled()) pagesAmount++;
+  if (SprinklerRelay::IsScheduleCycleEnabled()) pagesAmount++;
 
   if (enterPageTime==0) enterPageTime = millis();
   if (millis()-enterPageTime>SENSOR_PAGE_TIME) {
@@ -220,14 +220,14 @@ void SprinklerDisplay::drawSensor() {
   uint16_t w=0, w1=0, h, w2=0, w3=0;
 
   // czas
-  if (sensorPage==sensors.getSensorsAmount() && timeinfo->tm_year>120) {
+  if (sensorPage==sensors.getSensorAmount() && timeinfo->tm_year>120) {
     strcpy(description, "*Zegar");
     snprintf(sensorData1, sizeof(sensorData1), "%d%s%02d", timeinfo->tm_hour, (timeinfo->tm_sec%2)?":":"~", timeinfo->tm_min);
     snprintf(sensorData2, sizeof(sensorData2), "%s%02d", (timeinfo->tm_sec%2)?":":"~", timeinfo->tm_sec);
   } // godzina startu
-  else if (SprinklerRelay::isScheduleCycleEnabled() && 
-          ((sensorPage==sensors.getSensorsAmount() && timeinfo->tm_year<=120) || 
-              (sensorPage==sensors.getSensorsAmount()+1 && timeinfo->tm_year>120))) {
+  else if (SprinklerRelay::IsScheduleCycleEnabled() && 
+          ((sensorPage==sensors.getSensorAmount() && timeinfo->tm_year<=120) || 
+              (sensorPage==sensors.getSensorAmount()+1 && timeinfo->tm_year>120))) {
     strcpy(description, ")Godzina startu");
     time_t time = config.makeScheduleTimeToday();
     struct tm* timeinfo = localtime(&time);
@@ -277,13 +277,13 @@ void SprinklerDisplay::drawSensor() {
     print(sensorData3);
   }
 
-  if (SprinklerRelay::isDoorOpen())
+  if (SprinklerRelay::IsDoorOpen())
     drawBitmap(0, MIDDLE_ROW-8, door_open_bits, 8, 14, WHITE_COLOR);
   else
     drawBitmap(0, MIDDLE_ROW-6, door_closed_bits, 8, 12, WHITE_COLOR);
-  if (SprinklerRelay::isLightOn()) {
+  if (SprinklerRelay::IsLightOn()) {
     uint32_t remainingSec;
-    SprinklerRelay::getRelayById(RelayId::FixedLight)->getRemainingCountdownTimerSec(&remainingSec);
+    SprinklerRelay::GetRelayById(RelayId::FixedLight)->getRemainingCountdownTimerSec(&remainingSec);
     if (remainingSec==0 || frameId%3<2)
       drawBitmap(0, MIDDLE_ROW+9, bulb_on_bits, 8, 14, WHITE_COLOR);
   }
@@ -292,8 +292,8 @@ void SprinklerDisplay::drawSensor() {
   
   // wyświetl całą linię lub kawałek jeśli pokazuje strzałkę opróżniania lub dolewania
   drawLine(0, TOP_ROW+4, 
-    (SprinklerRelay::getRelayById(RelayId::EmptyTank)->isOn() || 
-      SprinklerRelay::getRelayById(RelayId::RefillTank)->isOn())?101 : (SCREEN_WIDTH-1), 
+    (SprinklerRelay::GetRelayById(RelayId::EmptyTank)->isOn() || 
+      SprinklerRelay::GetRelayById(RelayId::RefillTank)->isOn())?101 : (SCREEN_WIDTH-1), 
       TOP_ROW+4, WHITE_COLOR);
 }
 
@@ -341,7 +341,7 @@ void SprinklerDisplay::drawNetworkIcon() {
 
 void SprinklerDisplay::drawTank() {
   drawBitmap(103, 35, tank_bits[0], 25, 29, WHITE_COLOR); // tank
-   switch (SprinklerRelay::getTankStatus()) {
+   switch (SprinklerRelay::GetTankStatus()) {
     case ActionId::TankRefilling:
       if (frameId%2) drawBitmap(103, 35, tank_bits[2], 25, 29, WHITE_COLOR);
       break;
@@ -352,9 +352,9 @@ void SprinklerDisplay::drawTank() {
       drawBitmap(103, 35, tank_bits[3], 25, 29, WHITE_COLOR);
       break;
    }
-   if (SprinklerRelay::getRelayById(RelayId::EmptyTank)->isOn() && frameId%2)
+   if (SprinklerRelay::GetRelayById(RelayId::EmptyTank)->isOn() && frameId%2)
        drawBitmap(111, 20, image_arrow_up_bits, 9, 17, WHITE_COLOR);
-   if (SprinklerRelay::getRelayById(RelayId::RefillTank)->isOn() && !(frameId%2))
+   if (SprinklerRelay::GetRelayById(RelayId::RefillTank)->isOn() && !(frameId%2))
        drawBitmap(111, 20, image_arrow_down_bits, 9, 17, WHITE_COLOR);
 }
 
@@ -420,7 +420,7 @@ const char* editModeNames [] = {
   "Prze^[cz pomp]", 
   "Zraszacze front - czas", 
   "Zraszacze ogr`d - czas",
-  "Zraszacze przy gara|u - czas",
+  "Zr. przy gara|u - czas",
   "Kwiaty - czas",
   "Warzywniak - czas",
   "Dolewanie do studni",
@@ -462,11 +462,11 @@ bool SprinklerDisplay::drawEditMode() {
       setFont(&ArialMT10pt7b);
       setTextColor(WHITE_COLOR);
       if (editMode==RelayId::Pump || editMode==RelayId::EmptyTank || editMode==RefillTank || editMode==RunCycleNow || editMode==ScheduleCycle)
-        strcpy(info, SprinklerRelay::getRelayById(editMode)->isOn()?"W\\[CZONY":"WY\\[CZONY");
+        strcpy(info, SprinklerRelay::GetRelayById(editMode)->isOn()?"W\\[CZONY":"WY\\[CZONY");
       else if (editMode==RelayId::_EditScheduleTime)
         sprintf(info, "%0d:00", config.getScheduleHour());
       else
-        SprinklerRelay::getRelayTimeText(editMode, info, 16);
+        SprinklerRelay::GetRelayTimeText(editMode, info, 16);
       getTextBounds(info, 0, 63, &x1, &y1, &w, &h);
       setCursor((SCREEN_WIDTH - w) / 2, BOTTOM_ROW-3);
       print(info);

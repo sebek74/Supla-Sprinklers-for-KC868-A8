@@ -26,6 +26,8 @@
 #define MSG_TITLE "Sterownik nawodnienia"
 
 class SprinklerMessenger {
+private:
+  bool initialized = false;
 public: 
   void initialize();
   void sendMessage(const char* code, uint32_t param1=0,  uint32_t param2=0);

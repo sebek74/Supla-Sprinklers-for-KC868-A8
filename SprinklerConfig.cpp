@@ -27,11 +27,14 @@
 #include "Definitions.h"
 #include "SprinklerConfig.h"
 #include <supla/storage/eeprom.h>
+#include <RTClib.h>
+
+
+
 Supla::Eeprom eeprom;
-
 Supla::EspWebServer suplaServer;
+extern RTC_DS3231* rtc;
 
-extern SprinklerConfig config;
 #include <DallasTemperature.h>
 #include "SprinklerSensors.h"
 extern SprinklerSensors sensors;
@@ -267,16 +270,13 @@ void SprinklerConfig::initialize() {
   new Supla::Html::CustomParameter(LIGHT_ON_TIME, "Czas automatycznego wyłączenia światła przed szopą [s]", lightActivationTimeS, 30, 600);
   new Supla::Html::CustomParameter(LIGHT_MESSAGE_TIME, "Czas powiadomienia o włączonym świetle przed szopą [min]", lightTimeSMessage, 10, 120);
   
-
   new SprinklerSection("Nazwy czujników temperatury");
-
-  for (int i=0; i<sensors.getSensorsAmount(); i++) {
-    char param[16], address[64] = "Czujnik temperatury ";
-    sprintf(param, "%s%d", TEMP_PARAM_HEADER, i);
+  for (int i=0; i<sensors.getSensorAmount(); i++) {
+    char param[16], address[64];
+    snprintf(param, sizeof(param), "%s%d", TEMP_PARAM_HEADER, i);
+    snprintf(address, sizeof(address), "Czujnik temp. (%.1f°C) adr: ", sensors.getTemp(i));
     sensors.getDeviceAdress(i, address+strlen(address), 64-strlen(address));
-    SUPLA_LOG_DEBUG("info z konfiga: ");
-    SUPLA_LOG_DEBUG(address);
-    new Supla::Html::CustomTextParameter(param, address , 64);
+    new Supla::Html::CustomTextParameter(param, address, 64);
   }
 
   new SprinklerSection("Debug");
@@ -317,7 +317,8 @@ void SprinklerConfig::loadStorage() {
   this->getInt32(PUMP_ADVANCE_OFF_TIME, &pumpAdvOffTimeS);
   this->getUInt8(TELNET_DEBUG, &telnetDebug);
    
-  for (int i=0; i<sensors.getSensorsAmount(); i++) {
+  int i = 0;
+  for (int i=0; i<sensors.getSensorAmount(); i++) {
     char param[17];
     snprintf(param, 16, "%s%d", TEMP_PARAM_HEADER, i);
     this->getString(param, sensorNames[i], 16);
