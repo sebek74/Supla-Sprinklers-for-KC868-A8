@@ -30,7 +30,7 @@ DallasTemperature dallas;
 void SprinklerSensors::Initialize() {
   Supla::Sensor::DS18B20* zeroSensor = new Supla::Sensor::DS18B20(ONE_WIRE_GPIO);  // get 1st sensor, initialize pin
   dallas = zeroSensor->getHwSensors();
-  
+  if (zeroSensor->getValue()==TEMPERATURE_NOT_AVAILABLE)  return;
   DeviceAddress address;
   dallas.setWaitForConversion(true);
   dallas.requestTemperatures();

@@ -92,7 +92,6 @@ enum ActionId {
 
 class SprinklerProgramRelay;
 class SprinklerActionHandler;
-class SprinklerRelay;
 
 class SprinklerRelay : public Supla::Control::Relay {
   
